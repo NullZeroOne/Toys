@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Archive.ph Link Opener</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
+    label, input, button { font-size: 1rem; }
+    input[type="text"] { width: 100%; max-width: 700px; padding: .5rem; margin: .5rem 0; }
+    button { padding: .5rem .9rem; }
+  </style>
+</head>
+<body>
+  <h1>Archive.ph Link Opener</h1>
+  <p>Enter a URL. This tool strips everything from the first <code>?</code> onward and opens it via <code>https://archive.ph/</code> in a new tab.</p>
+
+  <form id="f">
+    <label for="u">URL</label><br>
+    <input id="u" name="u" type="text" placeholder="https://example.com/?q=test">
+    <button type="submit">Open</button>
+  </form>
+
+  <script>
+    (function(){
+      'use strict';
+      var form = document.getElementById('f');
+      var input = document.getElementById('u');
+
+      form.addEventListener('submit', function(ev){
+        ev.preventDefault();
+        var raw = input.value || '';
+        // Delete the first "?" and any subsequent text
+        var stripped = raw.split('?')[0];
+        // Prepend archive.ph and open in a new tab
+        var target = 'https://archive.ph/' + stripped;
+        window.open(target, '_blank');
+      });
+    })();
+  </script>
+</body>
+</html>
