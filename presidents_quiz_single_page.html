@@ -1,0 +1,432 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>U.S. Presidents Quiz (Single Page)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.45; margin: 0; padding: 24px; }
+    h1 { margin-top: 0; font-size: 1.6rem; }
+    .card { max-width: 820px; margin: 0 auto; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
+    .row { margin: 10px 0; }
+    label { display:block; margin-bottom: 6px; font-weight: 600; }
+    input[type="text"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
+    .inline { display: inline-block; margin-right: 12px; }
+    .hint { color: #555; font-size: .9rem; }
+    .actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+    button { padding: 10px 14px; border: 0; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+    button.primary { background: #1f6feb; color: white; }
+    button.secondary { background: #eee; }
+    #result { margin-top: 14px; font-weight: 700; }
+    .ok { color: #0a7a26; }
+    .bad { color: #b00020; }
+    .hidden { display: none; }
+    hr { border: none; height: 1px; background: #eee; margin: 18px 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>U.S. Presidents Quiz <span id="completedBadge" class="hint"></span></h1>
+    <div class="row">
+      <div class="hint">Years covered: 1945–2025. Case matters. Middle initials optional for everyone except the two Bushes (required).</div>
+    </div>
+    <div class="row">
+      <strong>Year:</strong> <span id="year">—</span>
+    </div>
+
+    <div class="row">
+      <label for="beginAnswer">Who was President at the <em>beginning</em> of the year?</label>
+      <input id="beginAnswer" type="text" autocomplete="off" />
+      <div class="hint">Case-sensitive. For George W. Bush and George H. W. Bush, initials are required (periods optional).</div>
+    </div>
+
+    <div class="row">
+      <label>Did the presidency change hands this year?</label>
+      <label class="inline"><input type="radio" name="change" value="no" checked> No</label>
+      <label class="inline"><input type="radio" name="change" value="yes"> Yes</label>
+    </div>
+
+    <div id="changeDetails" class="hidden">
+      <div class="row">
+        <label for="changeReason">Reason for presidential change</label>
+        <select id="changeReason">
+          <option value="election">Election</option>
+          <option value="resignation">Resignation</option>
+          <option value="death">Death</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="newPresident">Who became President?</label>
+        <input id="newPresident" type="text" autocomplete="off" />
+      </div>
+    </div>
+
+    <div id="electionSection" class="hidden">
+      <hr>
+      <h3>Election Year Questions</h3>
+      <div class="row">
+        <label class="inline"><input id="reelectedCheckbox" type="checkbox"> The current President and Vice President were re‑elected</label>
+      </div>
+      <div id="manualElectionInputs">
+        <div class="row">
+          <label for="winPres">Winning President</label>
+          <input id="winPres" type="text" autocomplete="off" />
+        </div>
+        <div class="row">
+          <label for="winVP">Winning Vice President</label>
+          <input id="winVP" type="text" autocomplete="off" />
+        </div>
+      </div>
+      <div class="row">
+        <label for="losePresSelect">Losing (major party) Presidential candidate</label>
+        <select id="losePresSelect"></select>
+      </div>
+      <div class="row">
+        <label for="loseVPSelect">Losing (major party) Vice‑Presidential candidate</label>
+        <select id="loseVPSelect"></select>
+      </div>
+    </div>
+
+    <div id="vpChangeSection" class="hidden">
+      <hr>
+      <h3>Non‑Election Vice Presidential Change</h3>
+      <div class="row">
+        <label for="vpChangeReason">Why did the vice presidency change?</label>
+        <select id="vpChangeReason">
+          <option value="president died">President died</option>
+          <option value="president resigned">President resigned</option>
+          <option value="vice president resigned">Vice President resigned</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="newVPName">Who became Vice President?</label>
+        <input id="newVPName" type="text" autocomplete="off" placeholder="Type a name..." />
+        <div class="row"><label class="inline"><input id="noVPReplacement" type="checkbox"> No replacement</label></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="submitBtn">Submit</button>
+      <button class="secondary hidden" id="retryBtn">Retry This Year</button>
+      <button class="secondary" id="nextBtn">Try Another Year</button>
+    </div>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+  // ---------- Data (terms use precise ISO dates) ----------
+  const presidents = [
+    { name: "Franklin D. Roosevelt", start: "1933-03-04", end: "1945-04-12" },
+    { name: "Harry S. Truman",      start: "1945-04-12", end: "1953-01-20" },
+    { name: "Dwight D. Eisenhower", start: "1953-01-20", end: "1961-01-20" },
+    { name: "John F. Kennedy",      start: "1961-01-20", end: "1963-11-22" },
+    { name: "Lyndon B. Johnson",    start: "1963-11-22", end: "1969-01-20" },
+    { name: "Richard Nixon",        start: "1969-01-20", end: "1974-08-09" },
+    { name: "Gerald Ford",          start: "1974-08-09", end: "1977-01-20" },
+    { name: "Jimmy Carter",         start: "1977-01-20", end: "1981-01-20" },
+    { name: "Ronald Reagan",        start: "1981-01-20", end: "1989-01-20" },
+    { name: "George H. W. Bush",    start: "1989-01-20", end: "1993-01-20" },
+    { name: "Bill Clinton",         start: "1993-01-20", end: "2001-01-20" },
+    { name: "George W. Bush",       start: "2001-01-20", end: "2009-01-20" },
+    { name: "Barack Obama",         start: "2009-01-20", end: "2017-01-20" },
+    { name: "Donald Trump",         start: "2017-01-20", end: "2021-01-20" },
+    { name: "Joe Biden",            start: "2021-01-20", end: "2025-01-20" },
+    { name: "Donald Trump",         start: "2025-01-20", end: "2029-01-20" }
+  ];
+
+  const vicePresidents = [
+    { name: "Harry S. Truman",      start: "1945-01-20", end: "1945-04-12" },
+    { name: "(vacant)",             start: "1945-04-12", end: "1949-01-20" },
+    { name: "Alben W. Barkley",     start: "1949-01-20", end: "1953-01-20" },
+    { name: "Richard Nixon",        start: "1953-01-20", end: "1961-01-20" },
+    { name: "Lyndon B. Johnson",    start: "1961-01-20", end: "1963-11-22" },
+    { name: "(vacant)",             start: "1963-11-22", end: "1965-01-20" },
+    { name: "Hubert Humphrey",      start: "1965-01-20", end: "1969-01-20" },
+    { name: "Spiro Agnew",          start: "1969-01-20", end: "1973-10-10" },
+    { name: "Gerald Ford",          start: "1973-12-06", end: "1974-08-09" },
+    { name: "Nelson Rockefeller",   start: "1974-12-19", end: "1977-01-20" },
+    { name: "Walter Mondale",       start: "1977-01-20", end: "1981-01-20" },
+    { name: "George H. W. Bush",    start: "1981-01-20", end: "1989-01-20" },
+    { name: "Dan Quayle",           start: "1989-01-20", end: "1993-01-20" },
+    { name: "Al Gore",              start: "1993-01-20", end: "2001-01-20" },
+    { name: "Dick Cheney",          start: "2001-01-20", end: "2009-01-20" },
+    { name: "Joe Biden",            start: "2009-01-20", end: "2017-01-20" },
+    { name: "Mike Pence",           start: "2017-01-20", end: "2021-01-20" },
+    { name: "Kamala Harris",        start: "2021-01-20", end: "2025-01-20" },
+    { name: "JD Vance",             start: "2025-01-20", end: "2029-01-20" }
+  ];
+
+  const elections = {
+    1948: { winPres:"Harry S. Truman", winVP:"Alben W. Barkley", losePres:"Thomas E. Dewey", loseVP:"Earl Warren" },
+    1952: { winPres:"Dwight D. Eisenhower", winVP:"Richard Nixon", losePres:"Adlai Stevenson II", loseVP:"John Sparkman" },
+    1956: { winPres:"Dwight D. Eisenhower", winVP:"Richard Nixon", losePres:"Adlai Stevenson II", loseVP:"Estes Kefauver" },
+    1960: { winPres:"John F. Kennedy", winVP:"Lyndon B. Johnson", losePres:"Richard Nixon", loseVP:"Henry Cabot Lodge Jr." },
+    1964: { winPres:"Lyndon B. Johnson", winVP:"Hubert Humphrey", losePres:"Barry Goldwater", loseVP:"William E. Miller" },
+    1968: { winPres:"Richard Nixon", winVP:"Spiro Agnew", losePres:"Hubert Humphrey", loseVP:"Edmund Muskie" },
+    1972: { winPres:"Richard Nixon", winVP:"Spiro Agnew", losePres:"George McGovern", loseVP:"Sargent Shriver" },
+    1976: { winPres:"Jimmy Carter", winVP:"Walter Mondale", losePres:"Gerald Ford", loseVP:"Bob Dole" },
+    1980: { winPres:"Ronald Reagan", winVP:"George H. W. Bush", losePres:"Jimmy Carter", loseVP:"Walter Mondale" },
+    1984: { winPres:"Ronald Reagan", winVP:"George H. W. Bush", losePres:"Walter Mondale", loseVP:"Geraldine Ferraro" },
+    1988: { winPres:"George H. W. Bush", winVP:"Dan Quayle", losePres:"Michael Dukakis", loseVP:"Lloyd Bentsen" },
+    1992: { winPres:"Bill Clinton", winVP:"Al Gore", losePres:"George H. W. Bush", loseVP:"Dan Quayle" },
+    1996: { winPres:"Bill Clinton", winVP:"Al Gore", losePres:"Bob Dole", loseVP:"Jack Kemp" },
+    2000: { winPres:"George W. Bush", winVP:"Dick Cheney", losePres:"Al Gore", loseVP:"Joe Lieberman" },
+    2004: { winPres:"George W. Bush", winVP:"Dick Cheney", losePres:"John Kerry", loseVP:"John Edwards" },
+    2008: { winPres:"Barack Obama", winVP:"Joe Biden", losePres:"John McCain", loseVP:"Sarah Palin" },
+    2012: { winPres:"Barack Obama", winVP:"Joe Biden", losePres:"Mitt Romney", loseVP:"Paul Ryan" },
+    2016: { winPres:"Donald Trump", winVP:"Mike Pence", losePres:"Hillary Clinton", loseVP:"Tim Kaine" },
+    2020: { winPres:"Joe Biden", winVP:"Kamala Harris", losePres:"Donald Trump", loseVP:"Mike Pence" },
+    2024: { winPres:"Donald Trump", winVP:"JD Vance", losePres:"Kamala Harris", loseVP:"Tim Walz" }
+  };
+
+  const vpChangeEvents = {
+    1945: { reason: "president died", newVP: null },
+    1963: { reason: "president died", newVP: null },
+    1973: { reason: "vice president resigned", newVP: "Gerald Ford" },
+    1974: { reason: "president resigned", newVP: "Nelson Rockefeller" }
+  };
+
+  // ---------- Utilities ----------
+  const $ = (id) => document.getElementById(id);
+  const byName = (name) => document.querySelector(`input[name="${name}"]:checked`);
+
+  function parseISO(s){ return new Date(s+"T00:00:00Z"); }
+  function dateInYear(year, month, day){ return new Date(Date.UTC(year, month-1, day)); }
+
+  function personOn(terms, date){
+    const t = terms.find(t => parseISO(t.start) <= date && date < parseISO(t.end));
+    return t ? t.name : "Unknown";
+  }
+
+  function presidentOn(date){ return personOn(presidents, date); }
+  function vicePresidentOn(date){ return personOn(vicePresidents, date); }
+
+  // Name matching per rules (case-sensitive overall)
+  function namesMatch(user, correct){
+    if (!user || !correct) return false;
+    // Special cases: Bushes require initials present (periods optional)
+    if (correct === "George W. Bush"){
+      const re = /^George\s+W\.?\s+Bush$/;
+      return re.test(user);
+    }
+    if (correct === "George H. W. Bush"){
+      const re = /^George\s+H\.?\s*W\.?\s+Bush$/;
+      return re.test(user);
+    }
+    // General rule: allow optional middle name/initial(s) and optional periods
+    // Build variants: with periods stripped, and with middles removed.
+    const stripPeriods = (s) => s.replace(/\./g, "").replace(/\s+/g, " ").trim();
+    const u = stripPeriods(user);
+    const c = stripPeriods(correct);
+    if (u === c) return true; // exact (ignoring periods)
+    // compare first+last only
+    const parts = c.split(" ");
+    if (parts.length >= 3){
+      const base = `${parts[0]} ${parts[parts.length-1]}`;
+      if (u === base) return true;
+    }
+    return false;
+  }
+
+  // Storage
+  const START_YEAR = 1945, END_YEAR = 2025;
+  function getCompletedYears(){ try { return JSON.parse(localStorage.getItem("completedYears")||"[]"); } catch { return []; } }
+  function setCompletedYear(y){ const s = new Set(getCompletedYears()); s.add(y); localStorage.setItem("completedYears", JSON.stringify(Array.from(s).sort((a,b)=>a-b))); }
+  function remainingYears(){
+    const done = new Set(getCompletedYears());
+    const yrs = [];
+    for(let y=START_YEAR; y<=END_YEAR; y++){ if(!done.has(y)) yrs.push(y); }
+    return yrs;
+  }
+  function pickYear(){
+    const rem = remainingYears();
+    if (rem.length === 0){
+      $("year").textContent = "All done 🎉";
+      $("completedBadge").textContent = "(100% complete)";
+      disableAll(true);
+      return null;
+    }
+    const idx = Math.floor(Math.random()*rem.length);
+    return rem[idx];
+  }
+
+  function disableAll(flag){
+    ["beginAnswer","newPresident","winPres","winVP","losePresSelect","loseVPSelect","vpChangeReason","newVPName","noVPReplacement"]
+      .forEach(id => { const el = $(id); if (el) el.disabled = flag; });
+    document.querySelectorAll('input[name="change"]').forEach(el=>el.disabled=flag);
+    $("submitBtn").disabled = flag;
+  }
+
+  // ---------- UI State ----------
+  let currentYear = null;
+  function setupYear(y){
+    currentYear = y;
+    const startDate = dateInYear(y,1,1);
+    const endDate = dateInYear(y,12,31);
+
+    $("year").textContent = String(y);
+    $("completedBadge").textContent = `${getCompletedYears().length} / ${END_YEAR-START_YEAR+1} complete`;
+
+    // Reset inputs/sections
+    $("beginAnswer").value = "";
+    document.querySelector('input[name="change"][value="no"]').checked = true;
+    $("changeDetails").classList.add("hidden");
+    $("reelectedCheckbox").checked = false;
+    $("manualElectionInputs").style.display = "block";
+    $("winPres").value = "";
+    $("winVP").value = "";
+    $("result").innerHTML = "";
+    $("result").className = "";
+    $("retryBtn").classList.add("hidden");
+
+    // Election section
+    const isElectionYear = Boolean(elections[y]);
+    $("electionSection").classList.toggle("hidden", !isElectionYear);
+
+    // Populate losing dropdowns (all unique losing candidates)
+    if (isElectionYear){
+      const losingPres = Array.from(new Set(Object.values(elections).map(e=>e.losePres))).sort();
+      const losingVPs  = Array.from(new Set(Object.values(elections).map(e=>e.loseVP))).sort();
+      const lpSel = $("losePresSelect"); lpSel.innerHTML = "";
+      const lvSel = $("loseVPSelect"); lvSel.innerHTML = "";
+      for (const n of losingPres){ const o=document.createElement("option"); o.value=o.textContent=n; lpSel.appendChild(o); }
+      for (const n of losingVPs){ const o=document.createElement("option"); o.value=o.textContent=n; lvSel.appendChild(o); }
+    }
+
+    // VP non-election change section
+    const vpChanged = Boolean(vpChangeEvents[y]);
+    $("vpChangeSection").classList.toggle("hidden", !vpChanged);
+    if (vpChanged){
+      $("vpChangeReason").value = vpChangeEvents[y].reason;
+      $("newVPName").value = "";
+      $("noVPReplacement").checked = vpChangeEvents[y].newVP === null;
+    }
+
+    // Change section toggle
+    document.querySelectorAll('input[name="change"]').forEach(el => {
+      el.onchange = () => $("changeDetails").classList.toggle("hidden", el.value!=="yes");
+    });
+
+    // Reelected checkbox behavior
+    $("reelectedCheckbox").onchange = (e)=>{
+      $("manualElectionInputs").style.display = e.target.checked ? "none" : "block";
+    };
+
+    // Wire buttons
+    $("submitBtn").onclick = onSubmit;
+    $("retryBtn").onclick = ()=>{ $("result").innerHTML=""; $("result").className=""; $("retryBtn").classList.add("hidden"); };
+    $("nextBtn").onclick = ()=>{
+      const y2 = pickYear();
+      if (y2!==null) setupYear(y2);
+    };
+  }
+
+  function onSubmit(){
+    const y = currentYear;
+    const startDate = dateInYear(y,1,1);
+    const endDate = dateInYear(y,12,31);
+
+    const messages = [];
+    const beganPres = presidentOn(startDate);
+    const endPres   = presidentOn(endDate);
+
+    // A. Start-of-year president
+    const userBegin = $("beginAnswer").value.trim();
+    if (namesMatch(userBegin, beganPres)){
+      messages.push("✅ Correct: beginning‑of‑year President.");
+    } else {
+      messages.push(`❌ Beginning‑of‑year President was <strong>${beganPres}</strong>.`);
+    }
+
+    // B. Change of presidency
+    const userSaidChange = byName("change").value === "yes";
+    if (!userSaidChange){
+      if (beganPres === endPres){
+        messages.push("✅ Correct: presidency did not change this year.");
+      } else {
+        messages.push(`❌ Presidency changed to <strong>${endPres}</strong>.`);
+      }
+    } else {
+      const reason = $("changeReason").value;
+      const newPresInput = $("newPresident").value.trim();
+      const actualReason = elections[y] ? "election" : (y===1945||y===1963) ? "death" : (y===1974) ? "resignation" : "unknown";
+
+      if (namesMatch(newPresInput, endPres)){
+        messages.push("✅ Correct: successor for the presidency.");
+      } else {
+        messages.push(`❌ Successor was <strong>${endPres}</strong>.`);
+      }
+
+      if (reason === actualReason){
+        messages.push("✅ Correct reason for the presidential change.");
+      } else {
+        messages.push(`❌ Actual reason: <strong>${actualReason}</strong>.`);
+      }
+    }
+
+    // C. Election-year questions
+    if (elections[y]){
+      const e = elections[y];
+      const re = $("reelectedCheckbox").checked;
+      if (re){
+        const incPres = beganPres;
+        const incVP = vicePresidentOn(startDate);
+        if (namesMatch(incPres, e.winPres)){
+          messages.push("✅ Correct: President was re‑elected.");
+        } else {
+          messages.push(`❌ Winner (President) was <strong>${e.winPres}</strong>.`);
+        }
+        if (namesMatch(incVP, e.winVP)){
+          messages.push("✅ Correct: Vice President was re‑elected.");
+        } else {
+          messages.push(`❌ Winner (Vice President) was <strong>${e.winVP}</strong>.`);
+        }
+      } else {
+        const wp = $("winPres").value.trim();
+        const wv = $("winVP").value.trim();
+        messages.push(namesMatch(wp, e.winPres) ? "✅ Winning President correct." : `❌ Winning President: <strong>${e.winPres}</strong>.`);
+        messages.push(namesMatch(wv, e.winVP) ? "✅ Winning Vice President correct." : `❌ Winning Vice President: <strong>${e.winVP}</strong>.`);
+      }
+      const lp = $("losePresSelect").value;
+      const lv = $("loseVPSelect").value;
+      messages.push(namesMatch(lp, e.losePres) ? "✅ Losing Presidential candidate correct." : `❌ Losing Presidential candidate: <strong>${e.losePres}</strong>.`);
+      messages.push(namesMatch(lv, e.loseVP) ? "✅ Losing Vice‑Presidential candidate correct." : `❌ Losing Vice‑Presidential candidate: <strong>${e.loseVP}</strong>.`);
+    }
+
+    // D. Non‑election VP changes
+    if (vpChangeEvents[y]){
+      const event = vpChangeEvents[y];
+      const userReason = $("vpChangeReason").value;
+      const userNoVP = $("noVPReplacement").checked;
+      const userNewVP = $("newVPName").value.trim();
+
+      messages.push(userReason === event.reason ? "✅ VP change reason correct." : `❌ VP change reason was <strong>${event.reason}</strong>.`);
+      if (event.newVP === null){
+        messages.push(userNoVP ? "✅ Correct: no VP replacement." : "❌ There was no VP replacement.");
+      } else {
+        messages.push(namesMatch(userNewVP, event.newVP) ? "✅ VP successor correct." : `❌ VP successor was <strong>${event.newVP}</strong>.`);
+      }
+    }
+
+    // Result + progression
+    const allOk = messages.every(m => m.startsWith("✅"));
+    $("result").innerHTML = messages.join("<br>");
+    $("result").className = allOk ? "ok" : "bad";
+    $("retryBtn").classList.toggle("hidden", allOk);
+
+    if (allOk){
+      setCompletedYear(y);
+      $("completedBadge").textContent = `${getCompletedYears().length} / ${END_YEAR-START_YEAR+1} complete`;
+    }
+  }
+
+  // ---------- Boot ----------
+  (function init(){
+    const y = pickYear();
+    if (y !== null) setupYear(y);
+  })();
+  </script>
+</body>
+</html>
