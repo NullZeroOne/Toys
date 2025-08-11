@@ -351,7 +351,11 @@
     } else {
       const reason = $("changeReason").value;
       const newPresInput = $("newPresident").value.trim();
-      const actualReason = elections[y] ? "election" : (y===1945||y===1963) ? "death" : (y===1974) ? "resignation" : "unknown";
+      const electionChangeYears = [1953, 1961, 1969, 1977, 1981, 1989, 1993, 2001, 2009, 2017, 2021, 2025];
+      const actualReason = electionChangeYears.includes(y) ? "election"
+        : (y===1945||y===1963) ? "death"
+        : (y===1974) ? "resignation"
+        : "unknown";
 
       if (namesMatch(newPresInput, endPres)){
         messages.push("✅ Correct: successor for the presidency.");
