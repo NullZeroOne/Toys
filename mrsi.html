@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MRSI Animation (Self‑Contained)</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #ffffff;
+      color: #111;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.5rem;
+      padding: 1rem;
+    }
+    canvas {
+      background: #fff;
+      border: 1px solid #ccc;
+      max-width: 100%;
+      height: auto;
+    }
+    .caption {
+      font-size: 0.95rem;
+      text-align: center;
+      max-width: 900px;
+      line-height: 1.35;
+    }
+    .meta {
+      font-size: 0.85rem;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 style="margin:0.2rem 0;">MRSI Demonstration (idealized)</h1>
+    <div class="caption">
+      Multiple Rounds Simultaneous Impact (MRSI): higher-arc shots have longer time-of-flight and are fired earlier; lower-arc shots are fired later, so all arrive together at the target range.
+      This idealized visualization ignores air drag and assumes level ground.
+    </div>
+    <canvas id="plot" width="1080" height="600" aria-label="MRSI animation"></canvas>
+    <div class="meta" id="readout"></div>
+  </div>
+
+  <script>
+    (function() {
+      "use strict";
+      const g = 9.81;
+      const RANGE_M = 15000.0;
+      const ANGLES_DEG = [25, 35, 45, 55, 65];
+      const REALTIME_SCALE = 1.0;
+      const MARGIN_TIME = 2.0;
+      const PADDING = {left: 60, right: 20, top: 20, bottom: 50};
+      const AXIS_TICKS_X = 6;
+      const AXIS_TICKS_Y = 5;
+
+      const canvas = document.getElementById("plot");
+      const ctx = canvas.getContext("2d");
+      const readout = document.getElementById("readout");
+
+      function setupHiDPI() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      (function ensureCssSize() {
+        canvas.style.width = canvas.width + "px";
+        canvas.style.height = canvas.height + "px";
+        setupHiDPI();
+        window.addEventListener("resize", () => { setupHiDPI(); });
+      })();
+
+      const anglesRad = ANGLES_DEG.map(a => a * Math.PI / 180);
+      function nearlyZero(x) { return Math.abs(x) < 1e-9; }
+      if (anglesRad.some(th => nearlyZero(Math.sin(2*th)))) {
+        throw new Error("Angles too close to 0° or 90°. Adjust ANGLES_DEG.");
+      }
+
+      const vMuzzle = anglesRad.map(th => Math.sqrt(RANGE_M * g / Math.sin(2*th)));
+      const tFlight = anglesRad.map((th, i) => 2 * vMuzzle[i] * Math.sin(th) / g);
+      const T_impact = Math.max.apply(null, tFlight);
+      const tFire = tFlight.map(tf => T_impact - tf);
+      const tTotal = T_impact + MARGIN_TIME;
+
+      const maxHeights = anglesRad.map((th, i) => {
+        const vy = vMuzzle[i] * Math.sin(th);
+        return (vy*vy) / (2*g);
+      });
+      const yMax = Math.max(10, Math.max.apply(null, maxHeights) * 1.1);
+      const xMax = RANGE_M * 1.05;
+
+      function plotRect() {
+        const w = canvas.width / (window.devicePixelRatio || 1);
+        const h = canvas.height / (window.devicePixelRatio || 1);
+        return { x: PADDING.left, y: PADDING.top,
+          w: Math.max(50, w - PADDING.left - PADDING.right),
+          h: Math.max(50, h - PADDING.top - PADDING.bottom) };
+      }
+      function xToPx(x) { const r = plotRect(); return r.x + (x / xMax) * r.w; }
+      function yToPx(y) { const r = plotRect(); const t = Math.min(Math.max(y, 0), yMax);
+        return r.y + r.h - (t / yMax) * r.h; }
+
+      function drawAxes() {
+        const r = plotRect();
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "#333";
+        ctx.fillStyle = "#333";
+        ctx.beginPath();
+        ctx.moveTo(r.x, yToPx(0)); ctx.lineTo(r.x + r.w, yToPx(0));
+        ctx.moveTo(r.x, r.y); ctx.lineTo(r.x, r.y + r.h);
+        ctx.stroke();
+        ctx.font = "12px system-ui";
+        ctx.textAlign = "center"; ctx.textBaseline = "top";
+        for (let i = 0; i <= AXIS_TICKS_X; i++) {
+          const xv = (xMax / AXIS_TICKS_X) * i;
+          const xp = xToPx(xv); const yp = yToPx(0);
+          ctx.beginPath(); ctx.moveTo(xp, yp); ctx.lineTo(xp, yp + 5); ctx.stroke();
+          ctx.fillText(Math.round(xv).toString(), xp, yp + 7);
+        }
+        ctx.textAlign = "right"; ctx.textBaseline = "middle";
+        for (let j = 0; j <= AXIS_TICKS_Y; j++) {
+          const yv = (yMax / AXIS_TICKS_Y) * j;
+          const yp = yToPx(yv);
+          ctx.beginPath(); ctx.moveTo(r.x - 5, yp); ctx.lineTo(r.x, yp); ctx.stroke();
+          ctx.fillText(Math.round(yv).toString(), r.x - 7, yp);
+        }
+        ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+        ctx.fillText("Range (m)", r.x + r.w / 2, r.y + r.h + 40);
+        ctx.save(); ctx.translate(r.x - 45, r.y + r.h / 2); ctx.rotate(-Math.PI / 2);
+        ctx.fillText("Height (m)", 0, 0); ctx.restore();
+        ctx.setLineDash([6, 6]);
+        ctx.strokeStyle = "#777";
+        ctx.beginPath();
+        ctx.moveTo(xToPx(RANGE_M), r.y); ctx.lineTo(xToPx(RANGE_M), r.y + r.h); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.textAlign = "right"; ctx.textBaseline = "top";
+        ctx.fillText("Target", xToPx(RANGE_M) - 4, r.y + 4);
+        ctx.restore();
+      }
+
+      function projectileXY(v, th, t) {
+        const x = v * Math.cos(th) * t;
+        const y = v * Math.sin(th) * t - 0.5 * g * t * t;
+        return [x, Math.max(0, y)];
+      }
+      function colorFor(i, n) { const h = Math.round((360 * i) / Math.max(1, n)); return `hsl(${h} 70% 40%)`; }
+
+      function drawLegend() {
+        const r = plotRect();
+        const x0 = r.x + 10; const y0 = r.y + 10; const lh = 16;
+        ctx.save(); ctx.font = "12px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        const pad = 6; const boxW = 360; const boxH = lh * (ANGLES_DEG.length + 1) + pad * 2;
+        ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.strokeStyle = "rgba(0,0,0,0.25)";
+        ctx.lineWidth = 1; ctx.fillRect(x0 - pad, y0 - pad, boxW, boxH);
+        ctx.strokeRect(x0 - pad, y0 - pad, boxW, boxH);
+        ctx.fillStyle = "#111";
+        ctx.fillText("θ (deg) | v (m/s) | fire @ t₀ | flight", x0, y0 + lh * 0.5);
+        for (let i = 0; i < ANGLES_DEG.length; i++) {
+          const y = y0 + lh * (i + 1.5);
+          ctx.fillStyle = colorFor(i, ANGLES_DEG.length);
+          ctx.fillRect(x0, y - 5, 18, 4);
+          ctx.fillStyle = "#111";
+          const line = `${ANGLES_DEG[i]}° | v=${vMuzzle[i].toFixed(1)} m/s | t₀=${tFire[i].toFixed(2)}s | ${tFlight[i].toFixed(2)}s`;
+          ctx.fillText(line, x0 + 26, y);
+        }
+        ctx.restore();
+      }
+
+      let startRealTime = null;
+      function step(ts) {
+        if (startRealTime === null) startRealTime = ts;
+        const elapsedReal = (ts - startRealTime) / 1000;
+        const tNow = Math.min(tTotal, elapsedReal * (1.0 / REALTIME_SCALE));
+        const w = canvas.width / (window.devicePixelRatio || 1);
+        const h = canvas.height / (window.devicePixelRatio || 1);
+        ctx.clearRect(0, 0, w, h);
+        drawAxes();
+        for (let i = 0; i < ANGLES_DEG.length; i++) {
+          const th = anglesRad[i]; const v = vMuzzle[i];
+          const t0 = tFire[i]; const tf = tFlight[i]; const tau = tNow - t0;
+          ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = colorFor(i, ANGLES_DEG.length); ctx.beginPath();
+          if (tau > 0) {
+            const tauEff = Math.min(tau, tf);
+            const n = Math.max(5, Math.floor(200 * tauEff / tf));
+            for (let k = 0; k <= n; k++) {
+              const tt = (tauEff * k) / n;
+              const [x, y] = projectileXY(v, th, tt);
+              const xp = xToPx(x); const yp = yToPx(y);
+              if (k === 0) ctx.moveTo(xp, yp); else ctx.lineTo(xp, yp);
+            }
+          }
+          ctx.stroke(); ctx.restore();
+        }
+        if (tNow >= T_impact) {
+          ctx.save(); ctx.fillStyle = "#000";
+          const xp = xToPx(RANGE_M); const yp = yToPx(0);
+          ctx.beginPath(); ctx.arc(xp, yp, 4, 0, 2*Math.PI); ctx.fill();
+          ctx.restore();
+        }
+        drawLegend();
+        readout.textContent = `Sim time: ${tNow.toFixed(2)} s  (Common impact: ${T_impact.toFixed(2)} s)`;
+        if (tNow < tTotal) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    })();
+  </script>
+</body>
+</html>
