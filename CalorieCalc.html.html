@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Calorie Calculator — 3243 cal/day</title>
+<style>
+  :root{--bg:#fff;--fg:#111;--muted:#666;--accent:#1f6feb}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+  main{max-width:700px;margin:6vh auto;padding:20px}
+  h1{margin:.2rem 0 1rem}
+  .card{border:1px solid #ddd;border-radius:12px;padding:16px}
+  label{font-weight:600}
+  input[type="number"]{width:100%;padding:.6rem .7rem;margin-top:.4rem;border:1px solid #bbb;border-radius:10px;font-size:1rem}
+  .actions{margin-top:.8rem}
+  button{padding:.6rem .9rem;border-radius:10px;border:1px solid #bbb;background:#f7f7f7;cursor:pointer;font-weight:600}
+  button:focus,button:hover{border-color:var(--accent)}
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-top:16px}
+  .kpi{border:1px solid #eee;border-radius:10px;padding:12px}
+  .kpi .label{font-size:.9rem;color:var(--muted)}
+  .kpi .value{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1.3rem;margin-top:.2rem}
+  footer{margin-top:1rem;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>Calorie Calculator</h1>
+  <p>Goal: <strong>3243 cal</strong> per day (midnight → midnight, local time). This page calculates once using the current time when you click “Calculate.”</p>
+
+  <div class="card">
+    <label for="calSoFar">Calories so far today</label>
+    <input id="calSoFar" type="number" inputmode="decimal" min="0" step="1" placeholder="e.g., 1200" />
+    <div class="actions">
+      <button id="calcBtn">Calculate</button>
+    </div>
+  </div>
+
+  <div class="grid" id="results" hidden>
+    <div class="kpi">
+      <div class="label">Time of calculation (local)</div>
+      <div class="value" id="nowVal">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Elapsed hours since midnight</div>
+      <div class="value" id="elapsedVal">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Pace so far</div>
+      <div class="value" id="paceSoFar">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Hours remaining today</div>
+      <div class="value" id="hrsRemain">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Calories remaining to goal</div>
+      <div class="value" id="calRemain">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Needed pace for remainder</div>
+      <div class="value" id="paceNeeded">—</div>
+    </div>
+  </div>
+
+  <footer>
+    Tip: If time has passed and you want updated numbers, click <em>Calculate</em> again.
+  </footer>
+</main>
+
+<script>
+(function(){
+  'use strict';
+  const GOAL = 3243;
+
+  const $ = id => document.getElementById(id);
+  const calSoFar   = $('calSoFar');
+  const calcBtn    = $('calcBtn');
+  const results    = $('results');
+
+  const nowVal     = $('nowVal');
+  const elapsedVal = $('elapsedVal');
+  const paceSoFar  = $('paceSoFar');
+  const hrsRemain  = $('hrsRemain');
+  const calRemain  = $('calRemain');
+  const paceNeeded = $('paceNeeded');
+
+  function startOfLocalDay(date=new Date()){
+    const d = new Date(date);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  function hoursSinceMidnight(now=new Date()){
+    const ms = now - startOfLocalDay(now);
+    // clamp to [0, 24]
+    return Math.max(0, Math.min(24, ms / 3600000));
+  }
+
+  function fmt1(n){ return Number.isFinite(n) ? n.toFixed(1) : '—'; }
+  function fmt0(n){ return Number.isFinite(n) ? Math.round(n).toString() : '—'; }
+
+  function computeOnce(){
+    const now = new Date();
+    const elapsed = hoursSinceMidnight(now);
+    const remainingHrs = 24 - elapsed;
+
+    const inputVal = Number.parseFloat(calSoFar.value);
+    const cals = Number.isFinite(inputVal) && inputVal >= 0 ? inputVal : 0;
+
+    const paceSoFarVal = (elapsed > 0) ? (cals / elapsed) : NaN;
+    const remainingCals = GOAL - cals; // can be <= 0
+    let needPace;
+    if (remainingCals <= 0) {
+      needPace = 0; // already met goal
+    } else if (remainingHrs > 0) {
+      needPace = remainingCals / remainingHrs;
+    } else {
+      needPace = NaN; // day over, goal not met
+    }
+
+    // Display
+    nowVal.textContent = now.toLocaleString();
+    elapsedVal.textContent = fmt1(elapsed) + ' h';
+    paceSoFar.textContent = Number.isFinite(paceSoFarVal) ? (fmt1(paceSoFarVal) + ' cal/hr') : 'N/A (before 00:01)';
+    hrsRemain.textContent = fmt1(remainingHrs) + ' h';
+
+    if (remainingCals >= 0) {
+      calRemain.textContent = fmt0(remainingCals) + ' cal';
+    } else {
+      calRemain.textContent = '-' + fmt0(Math.abs(remainingCals)) + ' cal (over goal)';
+    }
+
+    if (Number.isFinite(needPace)) {
+      paceNeeded.textContent = fmt1(needPace) + ' cal/hr';
+    } else if (remainingHrs <= 0 && remainingCals > 0) {
+      paceNeeded.textContent = 'N/A (day over, goal not met)';
+    } else {
+      paceNeeded.textContent = '—';
+    }
+
+    results.hidden = false;
+  }
+
+  calcBtn.addEventListener('click', computeOnce);
+  calSoFar.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter') computeOnce();
+  });
+})();
+</script>
+</body>
+</html>
