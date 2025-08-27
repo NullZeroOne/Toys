@@ -1,0 +1,68 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Countdown to Jan 20, 2029 Noon EST</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      font-size: 2em;
+      text-align: center;
+      margin-top: 20vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="countdown">Loading...</div>
+
+  <script>
+    function updateCountdown() {
+      const now = new Date();
+      const estOffset = now.getTimezoneOffset() + 300; // EST is UTC-5:00 (300 minutes behind UTC)
+      const nowEST = new Date(now.getTime() + estOffset * 60000);
+
+      const target = new Date("2029-01-20T12:00:00-05:00");
+
+      let years = target.getFullYear() - nowEST.getFullYear();
+      let months = target.getMonth() - nowEST.getMonth();
+      let days = target.getDate() - nowEST.getDate();
+      let hours = target.getHours() - nowEST.getHours();
+      let minutes = target.getMinutes() - nowEST.getMinutes();
+      let seconds = target.getSeconds() - nowEST.getSeconds();
+
+      if (seconds < 0) {
+        seconds += 60;
+        minutes--;
+      }
+      if (minutes < 0) {
+        minutes += 60;
+        hours--;
+      }
+      if (hours < 0) {
+        hours += 24;
+        days--;
+      }
+      if (days < 0) {
+        const prevMonth = new Date(nowEST.getFullYear(), nowEST.getMonth(), 0);
+        days += prevMonth.getDate();
+        months--;
+      }
+      if (months < 0) {
+        months += 12;
+        years--;
+      }
+
+      if (target - nowEST <= 0) {
+        document.getElementById("countdown").textContent = "0 years, 0 months, 0 days, 0 hours, 0 minutes, 0 seconds";
+      } else {
+        document.getElementById("countdown").textContent =
+          `${years} years, ${months} months, ${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
+      }
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+  </script>
+</body>
+</html>
