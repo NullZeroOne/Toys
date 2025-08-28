@@ -6,10 +6,14 @@
   <title>Countdown to Jan 20, 2029 Noon EST</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: monospace;
       font-size: 2em;
       text-align: center;
       margin-top: 10vh;
+    }
+    #countdown {
+      min-width: 30em;
+      display: inline-block;
     }
     #progress-container {
       width: 80%;
@@ -29,6 +33,7 @@
     #percent-display {
       margin-top: 10px;
       font-size: 1em;
+      font-family: monospace;
     }
   </style>
 </head>
@@ -41,22 +46,23 @@
   <div id="percent-display"></div>
 
   <script>
-    function pluralize(value, unit) {
-      return value + " " + unit + (value === 1 ? "" : "s");
+    function pluralizeFixed(value, unit) {
+      const padded = value.toString().padStart(2, " ");
+      const word = unit + (value === 1 ? " " : "s");
+      return padded + " " + word;
     }
 
     function updateCountdown() {
       const now = new Date();
       const nowUTC = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
       
-      const startEST = new Date("2025-01-20T17:00:00Z"); // Noon EST = 17:00 UTC
+      const startEST = new Date("2025-01-20T17:00:00Z");
       const endEST = new Date("2029-01-20T17:00:00Z");
 
       const totalMs = endEST - startEST;
       const elapsedMs = nowUTC - startEST;
       const percentElapsed = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
 
-      // Time difference for display
       const target = endEST;
       let remaining = target - nowUTC;
       if (remaining < 0) remaining = 0;
@@ -82,13 +88,13 @@
       if (months < 0) { months += 12; years--; }
 
       const countdownText = (remaining === 0)
-        ? "0 years, 0 months, 0 days, 0 hours, 0 minutes, 0 seconds"
-        : pluralize(years, "year") + ", " +
-          pluralize(months, "month") + ", " +
-          pluralize(days, "day") + ", " +
-          pluralize(hrs, "hour") + ", " +
-          pluralize(mins, "minute") + ", " +
-          pluralize(secs, "second");
+        ? " 0 year,  00 months,  00 days,  00 hours,  00 minutes,  00 seconds"
+        : years.toString().padStart(2, " ") + " year,  " +
+          pluralizeFixed(months, "month") + ",  " +
+          pluralizeFixed(days, "day") + ",  " +
+          pluralizeFixed(hrs, "hour") + ",  " +
+          pluralizeFixed(mins, "minute") + ",  " +
+          pluralizeFixed(secs, "second");
 
       document.getElementById("countdown").textContent = countdownText;
       document.getElementById("progress-bar").style.width = percentElapsed.toFixed(2) + "%";
