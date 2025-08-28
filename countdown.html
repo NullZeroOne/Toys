@@ -47,52 +47,48 @@
 
     function updateCountdown() {
       const now = new Date();
-      const estOffset = now.getTimezoneOffset() + 300; // EST is UTC-5:00
-      const nowEST = new Date(now.getTime() + estOffset * 60000);
+      const nowUTC = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+      
+      const startEST = new Date("2025-01-20T17:00:00Z"); // Noon EST = 17:00 UTC
+      const endEST = new Date("2029-01-20T17:00:00Z");
 
-      const target = new Date("2029-01-20T12:00:00-05:00");
-      const start = new Date("2024-01-20T12:00:00-05:00");
-      const totalDuration = target - start;
-      const elapsed = nowEST - start;
-      const percentElapsed = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+      const totalMs = endEST - startEST;
+      const elapsedMs = nowUTC - startEST;
+      const percentElapsed = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
 
-      let years = target.getFullYear() - nowEST.getFullYear();
-      let months = target.getMonth() - nowEST.getMonth();
-      let days = target.getDate() - nowEST.getDate();
-      let hours = target.getHours() - nowEST.getHours();
-      let minutes = target.getMinutes() - nowEST.getMinutes();
-      let seconds = target.getSeconds() - nowEST.getSeconds();
+      // Time difference for display
+      const target = endEST;
+      let remaining = target - nowUTC;
+      if (remaining < 0) remaining = 0;
 
-      if (seconds < 0) {
-        seconds += 60;
-        minutes--;
-      }
-      if (minutes < 0) {
-        minutes += 60;
-        hours--;
-      }
-      if (hours < 0) {
-        hours += 24;
-        days--;
-      }
+      const targetDate = new Date(target);
+      const nowDate = new Date(nowUTC);
+
+      let years = targetDate.getUTCFullYear() - nowDate.getUTCFullYear();
+      let months = targetDate.getUTCMonth() - nowDate.getUTCMonth();
+      let days = targetDate.getUTCDate() - nowDate.getUTCDate();
+      let hrs = targetDate.getUTCHours() - nowDate.getUTCHours();
+      let mins = targetDate.getUTCMinutes() - nowDate.getUTCMinutes();
+      let secs = targetDate.getUTCSeconds() - nowDate.getUTCSeconds();
+
+      if (secs < 0) { secs += 60; mins--; }
+      if (mins < 0) { mins += 60; hrs--; }
+      if (hrs < 0) { hrs += 24; days--; }
       if (days < 0) {
-        const prevMonth = new Date(nowEST.getFullYear(), nowEST.getMonth(), 0);
-        days += prevMonth.getDate();
+        const prevMonth = new Date(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), 0);
+        days += prevMonth.getUTCDate();
         months--;
       }
-      if (months < 0) {
-        months += 12;
-        years--;
-      }
+      if (months < 0) { months += 12; years--; }
 
-      const countdownText = (target - nowEST <= 0)
+      const countdownText = (remaining === 0)
         ? "0 years, 0 months, 0 days, 0 hours, 0 minutes, 0 seconds"
         : pluralize(years, "year") + ", " +
           pluralize(months, "month") + ", " +
           pluralize(days, "day") + ", " +
-          pluralize(hours, "hour") + ", " +
-          pluralize(minutes, "minute") + ", " +
-          pluralize(seconds, "second");
+          pluralize(hrs, "hour") + ", " +
+          pluralize(mins, "minute") + ", " +
+          pluralize(secs, "second");
 
       document.getElementById("countdown").textContent = countdownText;
       document.getElementById("progress-bar").style.width = percentElapsed.toFixed(2) + "%";
