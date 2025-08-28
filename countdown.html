@@ -17,6 +17,10 @@
   <div id="countdown">Loading...</div>
 
   <script>
+    function pluralize(value, unit) {
+      return value + " " + unit + (value === 1 ? "" : "s");
+    }
+
     function updateCountdown() {
       const now = new Date();
       const estOffset = now.getTimezoneOffset() + 300; // EST is UTC-5:00 (300 minutes behind UTC)
@@ -54,10 +58,16 @@
       }
 
       if (target - nowEST <= 0) {
-        document.getElementById("countdown").textContent = "0 years, 0 months, 0 days, 0 hours, 0 minutes, 0 seconds";
+        document.getElementById("countdown").textContent =
+          "0 years, 0 months, 0 days, 0 hours, 0 minutes, 0 seconds";
       } else {
         document.getElementById("countdown").textContent =
-          `${years} years, ${months} months, ${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
+          pluralize(years, "year") + ", " +
+          pluralize(months, "month") + ", " +
+          pluralize(days, "day") + ", " +
+          pluralize(hours, "hour") + ", " +
+          pluralize(minutes, "minute") + ", " +
+          pluralize(seconds, "second");
       }
     }
 
