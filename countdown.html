@@ -88,8 +88,8 @@
       if (months < 0) { months += 12; years--; }
 
       const countdownText = (remaining === 0)
-        ? " 0 year,  00 months,  00 days,  00 hours,  00 minutes,  00 seconds"
-        : years.toString().padStart(2, " ") + " year,  " +
+        ? " 0 years,  00 months,  00 days,  00 hours,  00 minutes,  00 seconds"
+        : pluralizeFixed(years, "year") + ",  " +
           pluralizeFixed(months, "month") + ",  " +
           pluralizeFixed(days, "day") + ",  " +
           pluralizeFixed(hrs, "hour") + ",  " +
