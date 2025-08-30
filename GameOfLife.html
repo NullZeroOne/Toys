@@ -24,8 +24,8 @@
       overflow: hidden;
     }
     .controls {
-      width: 360px;
-      max-width: 46vw;
+      width: 380px;
+      max-width: 48vw;
       background: var(--panel-bg);
       border-right: 1px solid var(--panel-border);
       padding: 16px;
@@ -103,6 +103,7 @@
       color: #666;
       margin-top: 4px;
     }
+    .subtle { color: #555; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -140,7 +141,7 @@
           <input id="chkAging" type="checkbox" />
         </div>
         <div class="row">
-          <label for="chkPopRebal" title="If enabled, each generation nudges the population toward Fill % by activating/deactivating one random cell.">PopRebal</label>
+          <label for="chkPopRebal" title="If enabled, each generation nudges population toward Fill % within a threshold, by adjusting Adj % of cells.">PopRebal</label>
           <input id="chkPopRebal" type="checkbox" />
         </div>
         <div class="row">
@@ -162,6 +163,13 @@
           <input id="inputFillPercent" type="number" min="0" max="100" step="1" value="30" />
           <button id="btnFill">Fill</button>
         </div>
+        <div class="row subtle">
+          <span>When PopRebal is on:</span>
+          <label for="inputRebalThreshold" title="Deadzone around Fill % where no changes happen">Threshold %</label>
+          <input id="inputRebalThreshold" type="number" min="0" max="100" step="1" value="5" />
+          <label for="inputRebalAdj" title="Percent of applicable cells to flip per generation when outside threshold">Adj %</label>
+          <input id="inputRebalAdj" type="number" min="0" max="100" step="1" value="10" />
+        </div>
         <div class="row">
           <button id="btnClear">Clear</button>
         </div>
@@ -173,6 +181,7 @@
           <div><strong>Live cells:</strong> <span id="statLive">0</span></div>
           <div><strong>Grid:</strong> <span id="statSize">0×0</span></div>
           <div><strong>Topology:</strong> <span id="statTopology">Bounded</span></div>
+          <div><strong>Live %:</strong> <span id="statLivePct">0%</span></div>
         </div>
         <div class="hint">Tip: Click a cell to toggle. Drag continues the last action.</div>
       </div>
@@ -200,6 +209,8 @@
     const inputBlockSize = document.getElementById('inputBlockSize');
     const inputMaxSpeed = document.getElementById('inputMaxSpeed');
     const inputHistoryCap = document.getElementById('inputHistoryCap');
+    const inputRebalThreshold = document.getElementById('inputRebalThreshold');
+    const inputRebalAdj = document.getElementById('inputRebalAdj');
     const chkToroidal = document.getElementById('chkToroidal');
     const chkTrends = document.getElementById('chkTrends');
     const chkAging = document.getElementById('chkAging');
@@ -209,6 +220,7 @@
     const statLive = document.getElementById('statLive');
     const statSize = document.getElementById('statSize');
     const statTopology = document.getElementById('statTopology');
+    const statLivePct = document.getElementById('statLivePct');
     const boardWrap = document.querySelector('.board-wrap');
 
     let historyCap = 10; // user-configurable
@@ -227,6 +239,7 @@
     // ====== Utilities ======
     function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
     function idx(r,c) { return r * cols + c; }
+    function fmtPct(p) { return (Math.round(p * 10) / 10).toFixed(1) + '%'; }
 
     function setCanvasSizeToGrid() {
       canvas.width = cols * blockSize;
@@ -323,7 +336,8 @@
       // Disable everything except Pause when running
       const allInputs = [
         btnPlay, btnStepForward, btnStepBack, btnFill, btnClear, btnResizeFit,
-        inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap, chkToroidal, chkTrends, chkAging, chkPopRebal
+        inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap,
+        inputRebalThreshold, inputRebalAdj, chkToroidal, chkTrends, chkAging, chkPopRebal
       ];
       for (const el of allInputs) el.disabled = isRunning;
 
@@ -339,10 +353,14 @@
     }
 
     function updateStatus() {
+      const live = countLive();
       statGeneration.textContent = String(generation);
       statSize.textContent = cols + '×' + rows;
       statTopology.textContent = chkToroidal.checked ? 'Toroidal' : 'Bounded';
-      statLive.textContent = String(countLive());
+      statLive.textContent = String(live);
+      const total = rows * cols;
+      const pct = total ? (live / total) * 100 : 0;
+      statLivePct.textContent = fmtPct(pct);
     }
 
     function countLive() {
@@ -402,7 +420,7 @@
       const cr = Math.floor(centerIndex / cols);
       const cc = centerIndex % cols;
       const total = rows * cols;
-      // Fast check: any empty at all?
+      // quick check
       let anyEmpty = false;
       for (let i = 0; i < total; i++) { if (emptyFlagArr[i]) { anyEmpty = true; break; } }
       if (!anyEmpty) return -1;
@@ -462,33 +480,48 @@
     }
 
     // ---- PopRebal ----
+    function sampleIndices(list, k) {
+      // In-place partial Fisher–Yates to sample k unique items (<= list.length)
+      k = Math.min(k, list.length);
+      for (let i = 0; i < k; i++) {
+        const j = i + ((Math.random() * (list.length - i)) | 0);
+        const tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+      }
+      return list.slice(0, k);
+    }
+
     function applyPopRebalIfNeeded() {
       if (!chkPopRebal.checked) return;
       const total = rows * cols;
       if (total === 0) return;
-      const v = parseFloat(inputFillPercent.value);
-      const targetPct = clamp(isFinite(v) ? v : 0, 0, 100);
+
+      const targetPct = clamp(parseFloat(inputFillPercent.value), 0, 100);
+      const threshold = clamp(parseFloat(inputRebalThreshold.value), 0, 100);
+      const adjPct = clamp(parseFloat(inputRebalAdj.value), 0, 100);
+
       const live = countLive();
       const curPct = (live / total) * 100;
 
-      if (curPct < targetPct) {
-        // activate one random empty cell
-        const empties = [];
-        for (let i = 0; i < total; i++) if (grid[i] === 0) empties.push(i);
-        if (empties.length > 0) {
-          const j = empties[(Math.random() * empties.length) | 0];
-          grid[j] = 1;
-        }
-      } else if (curPct > targetPct) {
-        // deactivate one random live cell
+      if (curPct > targetPct + threshold) {
+        // deactivate Adj% of current live cells
         const lives = [];
         for (let i = 0; i < total; i++) if (grid[i] === 1) lives.push(i);
-        if (lives.length > 0) {
-          const j = lives[(Math.random() * lives.length) | 0];
-          grid[j] = 0;
+        if (lives.length > 0 && adjPct > 0) {
+          const k = Math.round((adjPct / 100) * lives.length);
+          const chosen = sampleIndices(lives, k);
+          for (const j of chosen) grid[j] = 0;
+        }
+      } else if (curPct < targetPct - threshold) {
+        // activate Adj% of current empty cells
+        const empties = [];
+        for (let i = 0; i < total; i++) if (grid[i] === 0) empties.push(i);
+        if (empties.length > 0 && adjPct > 0) {
+          const k = Math.round((adjPct / 100) * empties.length);
+          const chosen = sampleIndices(empties, k);
+          for (const j of chosen) grid[j] = 1;
         }
       }
-      // equal: do nothing
+      // inside threshold: do nothing
     }
 
     function stepForwardComputeAndMutations() {
@@ -713,6 +746,12 @@
     }
 
     // ====== Initialization ======
+    function syncPopRebalInputsEnabled() {
+      const on = chkPopRebal.checked && !running;
+      inputRebalThreshold.disabled = !on;
+      inputRebalAdj.disabled = !on;
+    }
+
     function init() {
       blockSize = clamp(parseInt(inputBlockSize.value, 10) || 10, 1, 4096);
       inputBlockSize.value = String(blockSize);
@@ -728,6 +767,7 @@
       resetHistory();
       draw();
       updateStatus();
+      syncPopRebalInputsEnabled();
     }
 
     // ====== Event wiring ======
@@ -799,7 +839,7 @@
     });
 
     chkPopRebal.addEventListener('change', () => {
-      // No immediate effect; applies on next computed generation
+      syncPopRebalInputsEnabled();
     });
 
     // Keep logical grid size stable on window resize (manual recompute via button)
