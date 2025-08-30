@@ -24,8 +24,8 @@
       overflow: hidden;
     }
     .controls {
-      width: 320px;
-      max-width: 40vw;
+      width: 340px;
+      max-width: 44vw;
       background: var(--panel-bg);
       border-right: 1px solid var(--panel-border);
       padding: 16px;
@@ -49,7 +49,7 @@
     }
     label { font-size: 14px; }
     input[type="number"] {
-      width: 110px;
+      width: 120px;
       padding: 6px 8px;
       border: 1px solid var(--panel-border);
       border-radius: 6px;
@@ -126,10 +126,18 @@
         <div class="hint">During Play, all inputs are disabled except Pause.</div>
       </div>
 
-      <div class="group" aria-label="Grid settings">
+      <div class="group" aria-label="Grid & history settings">
         <div class="row">
           <label for="chkToroidal">Toroidal topology</label>
           <input id="chkToroidal" type="checkbox" />
+        </div>
+        <div class="row">
+          <label for="chkTrends" title="Show grayscale trend of activity using current + available previous saved states.">Trends</label>
+          <input id="chkTrends" type="checkbox" />
+        </div>
+        <div class="row">
+          <label for="inputHistoryCap" title="Number of board states to keep in history (undo/redo window).">History size</label>
+          <input id="inputHistoryCap" type="number" min="1" max="500" step="1" value="10" />
         </div>
         <div class="row">
           <label for="inputBlockSize">Block size (px)</label>
@@ -183,7 +191,9 @@
     const inputFillPercent = document.getElementById('inputFillPercent');
     const inputBlockSize = document.getElementById('inputBlockSize');
     const inputMaxSpeed = document.getElementById('inputMaxSpeed');
+    const inputHistoryCap = document.getElementById('inputHistoryCap');
     const chkToroidal = document.getElementById('chkToroidal');
+    const chkTrends = document.getElementById('chkTrends');
 
     const statGeneration = document.getElementById('statGeneration');
     const statLive = document.getElementById('statLive');
@@ -191,7 +201,8 @@
     const statTopology = document.getElementById('statTopology');
     const boardWrap = document.querySelector('.board-wrap');
 
-    const HISTORY_CAP = 10;
+    let historyCap = 10; // user-configurable
+
     let rows = 0, cols = 0;
     let blockSize = 10;
     let grid = new Uint8Array(0);
@@ -202,7 +213,6 @@
     let history = []; // array of {grid: Uint8Array, generation: number}
     let cursor = -1;  // index in history of current state
     let dragState = null; // null | 0 | 1
-    let hadRedo = false;
 
     // ====== Utilities ======
     function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
@@ -253,6 +263,15 @@
       updateHistoryButtons();
     }
 
+    function enforceHistoryCap() {
+      // Remove oldest while exceeding cap; shift cursor accordingly
+      while (history.length > historyCap) {
+        history.shift();
+        cursor = Math.max(0, cursor - 1);
+      }
+      updateHistoryButtons();
+    }
+
     function pushHistorySnapshot(customGrid=null, customGeneration=null) {
       // Truncate any redo states
       if (cursor < history.length - 1) {
@@ -261,10 +280,7 @@
       const snapGrid = (customGrid ? customGrid : grid).slice(0);
       const snapGen = (customGeneration !== null ? customGeneration : generation);
       history.push({ grid: snapGrid, generation: snapGen });
-      // Enforce cap from the oldest side
-      if (history.length > HISTORY_CAP) {
-        history.shift();
-      }
+      enforceHistoryCap();
       cursor = history.length - 1;
       updateHistoryButtons();
     }
@@ -277,9 +293,7 @@
       cursor = newCursor;
       const snap = history[cursor];
       if (snap.grid.length !== grid.length) {
-        // Different dimensions (shouldn't happen because we clear history on resize)
         grid = snap.grid.slice(0);
-        rows = Math.floor(grid.length / cols); // fallback, likely wrong; but history should be cleared on resize
       } else {
         grid.set(snap.grid);
       }
@@ -291,7 +305,6 @@
 
     function updateHistoryButtons() {
       btnStepBack.disabled = !canStepBack() || running;
-      // StepForward is disabled only during play; otherwise enabled (even if no redo, it computes a new generation)
       btnStepForward.disabled = running;
     }
 
@@ -300,7 +313,7 @@
       // Disable everything except Pause when running
       const allInputs = [
         btnPlay, btnStepForward, btnStepBack, btnFill, btnClear, btnResizeFit,
-        inputFillPercent, inputBlockSize, inputMaxSpeed, chkToroidal
+        inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap, chkToroidal, chkTrends
       ];
       for (const el of allInputs) el.disabled = isRunning;
 
@@ -351,29 +364,19 @@
 
     function computeNextGeneration(out) {
       // out must be a Uint8Array of size rows*cols
-      let liveCount = 0;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const i = idx(r,c);
           const n = neighborCount(r,c);
           const alive = grid[i] === 1;
-          let next = 0;
-          if (alive) {
-            next = (n === 2 || n === 3) ? 1 : 0;
-          } else {
-            next = (n === 3) ? 1 : 0;
-          }
-          out[i] = next;
-          liveCount += next;
+          out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0) : (n === 3 ? 1 : 0);
         }
       }
-      return liveCount;
     }
 
     function stepForwardCompute() {
       // Compute nextGrid from grid, then swap
-      const aliveNext = computeNextGeneration(nextGrid);
-      // Swap buffers
+      computeNextGeneration(nextGrid);
       const tmp = grid;
       grid = nextGrid;
       nextGrid = tmp;
@@ -399,24 +402,40 @@
     }
 
     // ====== Rendering ======
-    function draw() {
-      // Clear
+    function drawTrendsOrBW() {
+      const wantTrends = chkTrends.checked;
+      const knownStates = cursor + 1; // number of snapshots from history[0..cursor] inclusive
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Draw alive cells
-      if (blockSize >= 4) {
-        // Draw by rows to reduce draw calls somewhat
+
+      if (!wantTrends || knownStates <= 1) {
+        // Standard black/white render using current grid
         ctx.fillStyle = '#111';
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (grid[idx(r,c)]) {
+              ctx.fillRect(c * blockSize, r * blockSize, blockSize, blockSize);
+            }
+          }
+        }
       } else {
-        ctx.fillStyle = '#111';
-      }
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (grid[idx(r,c)]) {
+        // Trends render: intensity based on fraction of alive over knownStates (current + available past)
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const i = idx(r,c);
+            let aliveCount = 0;
+            for (let k = 0; k < knownStates; k++) {
+              const snap = history[cursor - k];
+              aliveCount += snap.grid[i];
+            }
+            const frac = aliveCount / knownStates; // 0..1
+            const g = Math.round(255 * (1 - frac)); // 0=black (always alive), 255=white (never alive)
+            ctx.fillStyle = `rgb(${g},${g},${g})`;
             ctx.fillRect(c * blockSize, r * blockSize, blockSize, blockSize);
           }
         }
       }
-      // Optional: draw grid lines when large blocks
+
+      // Optional grid lines for large blocks
       if (blockSize >= 16) {
         ctx.strokeStyle = '#eee';
         ctx.lineWidth = 1;
@@ -439,6 +458,10 @@
       }
     }
 
+    function draw() {
+      drawTrendsOrBW();
+    }
+
     // ====== Fill & Clear ======
     function doFill() {
       // Push pre-fill snapshot so one Step Back restores prior board
@@ -448,11 +471,7 @@
       inputFillPercent.value = String(Math.round(pct));
       const total = rows * cols;
       const target = Math.round((pct / 100) * total);
-      // Reset all to 0 then set exactly 'target' random distinct cells to 1
       grid.fill(0);
-      // Reservoir-like uniform selection without replacement:
-      // We can use a Fisher-Yates approach picking 'target' positions.
-      // For memory simplicity, use a set when target << total.
       if (target > 0) {
         if (target * 3 < total) {
           const chosen = new Set();
@@ -461,7 +480,6 @@
           }
           for (const i of chosen) grid[i] = 1;
         } else {
-          // Fill all then turn off (total - target) random positions
           grid.fill(1);
           let toZero = total - target;
           const chosen = new Set();
@@ -471,7 +489,7 @@
           for (const i of chosen) grid[i] = 0;
         }
       }
-      generation = 0; // Treat as a fresh board; spec allows reset on Clear; for Fill we'll keep gen? We'll keep 0 for predictability.
+      generation = 0; // treat as fresh board
       // Push post-fill snapshot
       pushHistorySnapshot();
       draw();
@@ -482,7 +500,7 @@
       // Push pre-clear snapshot
       pushHistorySnapshot();
       grid.fill(0);
-      generation = 0; // Per spec default: reset to 0
+      generation = 0;
       // Push post-clear snapshot
       pushHistorySnapshot();
       draw();
@@ -579,6 +597,10 @@
     function init() {
       blockSize = clamp(parseInt(inputBlockSize.value, 10) || 10, 1, 4096);
       inputBlockSize.value = String(blockSize);
+
+      historyCap = clamp(parseInt(inputHistoryCap.value, 10) || 10, 1, 500);
+      inputHistoryCap.value = String(historyCap);
+
       // Initial grid fills available area after leaving space for UI
       resizeGridToFit(false);
       // Start with empty board and snapshot initial state
@@ -603,7 +625,7 @@
 
     btnFill.addEventListener('click', () => {
       if (running) return;
-      // Filling after stepping back truncates redo (spec)
+      // Filling after stepping back truncates redo
       dropRedoIfAny();
       doFill();
     });
@@ -627,19 +649,35 @@
         return;
       }
       blockSize = v;
-      // Per spec: changing block size recomputes grid to fit
+      // Changing block size recomputes grid to fit
       resizeGridToFit(true);
+    });
+
+    inputHistoryCap.addEventListener('change', () => {
+      if (running) return;
+      const v = Math.floor(Number(inputHistoryCap.value));
+      if (!isFinite(v) || v < 1) {
+        inputHistoryCap.value = String(historyCap);
+        return;
+      }
+      historyCap = clamp(v, 1, 500);
+      inputHistoryCap.value = String(historyCap);
+      enforceHistoryCap();
+      draw(); // trends may change with different window length available
     });
 
     chkToroidal.addEventListener('change', () => {
       updateStatus(); // takes effect on next evolution step
+      draw(); // redraw in case trends
     });
 
-    // Keep logical grid size stable on window resize (per spec).
-    // We do NOT recompute automatically; user can click "Resize to Fit".
+    chkTrends.addEventListener('change', () => {
+      draw(); // toggle between BW and Trends
+    });
+
+    // Keep logical grid size stable on window resize (manual recompute via button)
     window.addEventListener('resize', () => {
-      // Do nothing to logical rows/cols. We keep canvas fixed-size too.
-      // (Canvas may overflow; user can scroll or click Resize to Fit.)
+      // no automatic recompute
     });
 
     // Board interactions
