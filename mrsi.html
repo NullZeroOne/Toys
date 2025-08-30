@@ -3,399 +3,96 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MRSI Animation with Sound Fronts (Self‑Contained)</title>
+  <title>MRSI Animation with Sound Fronts (until last sound arrival)</title>
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: #ffffff;
-      color: #111;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    }
-    .wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 0.5rem;
-      padding: 1rem;
-    }
-    canvas {
-      background: #fff;
-      border: 1px solid #ccc;
-      max-width: 100%;
-      height: auto;
-    }
-    .caption {
-      font-size: 0.95rem;
-      text-align: center;
-      max-width: 980px;
-      line-height: 1.35;
-    }
-    .meta {
-      font-size: 0.9rem;
-      color: #444;
-    }
-    .small {
-      font-size: 0.85rem;
-      color: #555;
-    }
+    html, body { height: 100%; margin: 0; background: #fff; color: #111; font-family: system-ui, sans-serif; }
+    .wrap { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 1rem; }
+    canvas { background: #fff; border: 1px solid #ccc; max-width: 100%; height: auto; }
+    .caption { font-size: 0.95rem; text-align: center; max-width: 980px; line-height: 1.35; }
+    .meta { font-size: 0.9rem; color: #444; }
+    .small { font-size: 0.85rem; color: #555; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1 style="margin:0.2rem 0;">MRSI Demonstration (idealized) with Sound Fronts</h1>
+    <h1 style="margin:0.2rem 0;">MRSI Demonstration with Sound Fronts</h1>
     <div class="caption">
-      Each projectile follows a parabolic trajectory (no drag, level ground). A dashed circle of the same color shows
-      the expanding sound wave of the gun report for that shot, starting at its fire time and propagating radially
-      at the speed of sound (assumed constant, <em>c</em> = 343&nbsp;m/s at ~20&nbsp;°C). The common impact time for
-      all shots is compared to the time the sound reaches the target (<em>R</em>/c).
+      Projectiles (solid lines) land together at a common impact time. For each shot, a dashed circle of the same color
+      shows the expanding sound wave of the gun report, starting at that shot’s fire time and propagating at the speed
+      of sound (<em>c</em> = 343&nbsp;m/s). The simulation continues until the <em>last</em> shot’s sound reaches
+      the target at distance <em>R</em>.
     </div>
-    <canvas id="plot" width="1080" height="640" aria-label="MRSI animation with sound"></canvas>
+    <canvas id="plot" width="1080" height="640"></canvas>
     <div class="meta" id="readout"></div>
     <div class="small" id="notes"></div>
   </div>
 
   <script>
-    (function() {
-      "use strict";
+  (function(){
+    const g=9.81, c_sound=343, RANGE_M=15000, ANGLES_DEG=[25,35,45,55,65];
+    const REALTIME_SCALE=1.0, MARGIN_TIME=2.0, PADDING={left:70,right:20,top:20,bottom:60};
+    const canvas=document.getElementById("plot"), ctx=canvas.getContext("2d");
+    const readout=document.getElementById("readout"), notes=document.getElementById("notes");
 
-      // ----------------------------
-      // Tunable parameters
-      // ----------------------------
-      const g = 9.81;                 // gravity [m/s^2]
-      const c_sound = 343.0;          // speed of sound [m/s] at ~20°C, sea-level (dry air)
-      const RANGE_M = 15000.0;        // target range [m]
-      const ANGLES_DEG = [25, 35, 45, 55, 65];  // elevation angles (deg)
-      const REALTIME_SCALE = 1.0;     // 1.0 = 1 simulated second per real second
-      const MARGIN_TIME = 2.0;        // seconds to linger after impact
-      const PADDING = {left: 70, right: 20, top: 20, bottom: 60};
-      const AXIS_TICKS_X = 6;         // number of x ticks
-      const AXIS_TICKS_Y = 5;         // number of y ticks
+    function setupHiDPI(){const dpr=window.devicePixelRatio||1;const rect=canvas.getBoundingClientRect();
+      canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
+    (function(){canvas.style.width=canvas.width+"px";canvas.style.height=canvas.height+"px";setupHiDPI();
+      window.addEventListener("resize",setupHiDPI);})();
 
-      const canvas = document.getElementById("plot");
-      const ctx = canvas.getContext("2d");
-      const readout = document.getElementById("readout");
-      const notes = document.getElementById("notes");
+    const anglesRad=ANGLES_DEG.map(a=>a*Math.PI/180);
+    const vMuzzle=anglesRad.map(th=>Math.sqrt(RANGE_M*g/Math.sin(2*th)));
+    const tFlight=anglesRad.map((th,i)=>2*vMuzzle[i]*Math.sin(th)/g);
+    const T_impact=Math.max(...tFlight);
+    const tFire=tFlight.map(tf=>T_impact-tf);
+    const tSoundAtTarget=RANGE_M/c_sound;
+    const tSoundArrivals=tFire.map(t0=>t0+tSoundAtTarget);
+    const lastSoundArrival=Math.max(...tSoundArrivals);
+    const tStop=lastSoundArrival+MARGIN_TIME;
 
-      // ----------------------------
-      // HiDPI + layout
-      // ----------------------------
-      function setupHiDPI() {
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = Math.round(rect.width * dpr);
-        canvas.height = Math.round(rect.height * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
-      (function ensureCssSize() {
-        canvas.style.width = canvas.width + "px";
-        canvas.style.height = canvas.height + "px";
-        setupHiDPI();
-        window.addEventListener("resize", () => { setupHiDPI(); });
-      })();
+    const maxHeights=anglesRad.map((th,i)=>{const vy=vMuzzle[i]*Math.sin(th);return vy*vy/(2*g);});
+    const yMax=Math.max(10,Math.max(...maxHeights)*1.1), xMax=RANGE_M*1.05;
 
-      // ----------------------------
-      // Ballistics & schedule
-      // ----------------------------
-      const anglesRad = ANGLES_DEG.map(a => a * Math.PI / 180);
-      function nearlyZero(x) { return Math.abs(x) < 1e-9; }
-      if (anglesRad.some(th => nearlyZero(Math.sin(2*th)))) {
-        throw new Error("Angles too close to 0° or 90°. Adjust ANGLES_DEG.");
-      }
+    function plotRect(){const w=canvas.width/(window.devicePixelRatio||1),h=canvas.height/(window.devicePixelRatio||1);
+      const availW=w-PADDING.left-PADDING.right,availH=h-PADDING.top-PADDING.bottom;
+      const scale=Math.min(availW/xMax,availH/yMax);return{x:PADDING.left,y:PADDING.top+(availH-yMax*scale),w:xMax*scale,h:yMax*scale,scale};}
+    function xToPx(x){const r=plotRect();return r.x+x*r.scale;}function yToPx(y){const r=plotRect();return r.y+r.h-Math.max(0,y)*r.scale;}
 
-      // v = sqrt(R*g / sin(2θ))
-      const vMuzzle = anglesRad.map(th => Math.sqrt(RANGE_M * g / Math.sin(2*th)));
-      // t_f = 2 v sinθ / g
-      const tFlight = anglesRad.map((th, i) => 2 * vMuzzle[i] * Math.sin(th) / g);
+    function projectileXY(v,th,t){return[v*Math.cos(th)*t,Math.max(0,v*Math.sin(th)*t-0.5*g*t*t)];}
+    function colorFor(i,n){return`hsl(${Math.round(360*i/n)} 70% 40%)`;}
 
-      // MRSI schedule: all impact at T_impact
-      const T_impact = Math.max.apply(null, tFlight);
-      const tFire = tFlight.map(tf => T_impact - tf); // earliest shot fires at t=0
-      const tTotal = T_impact + MARGIN_TIME;
+    function drawAxes(){const r=plotRect();ctx.save();ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.strokeStyle="#333";ctx.beginPath();ctx.moveTo(xToPx(0),yToPx(0));ctx.lineTo(xToPx(xMax),yToPx(0));ctx.stroke();
+      ctx.beginPath();ctx.moveTo(xToPx(0),yToPx(0));ctx.lineTo(xToPx(0),yToPx(yMax));ctx.stroke();ctx.restore();}
 
-      // Sound arrival time at the target (straight-line ground distance R, same elevation)
-      const tSoundAtTarget = RANGE_M / c_sound;
+    function drawLegend(){const r=plotRect(),x0=r.x+10,y0=r.y+10,lh=16;ctx.save();ctx.font="12px system-ui";ctx.textAlign="left";
+      const boxH=lh*(ANGLES_DEG.length+2)+12;ctx.fillStyle="rgba(255,255,255,0.85)";ctx.fillRect(x0-6,y0-6,460,boxH);
+      ctx.strokeStyle="rgba(0,0,0,0.25)";ctx.strokeRect(x0-6,y0-6,460,boxH);
+      ctx.fillStyle="#111";ctx.fillText("θ | v (m/s) | fire @ t₀ | flight | sound @ target",x0,y0+lh*0.5);
+      ANGLES_DEG.forEach((ang,i)=>{const y=y0+lh*(i+1.5);ctx.fillStyle=colorFor(i,ANGLES_DEG.length);
+        ctx.fillRect(x0,y-5,18,4);ctx.fillStyle="#111";
+        ctx.fillText(`${ang}° | v=${vMuzzle[i].toFixed(1)} | t₀=${tFire[i].toFixed(2)}s | ${tFlight[i].toFixed(2)}s | ${tSoundArrivals[i].toFixed(2)}s`,x0+26,y);});
+      ctx.fillStyle="#333";ctx.fillText(`Common impact: ${T_impact.toFixed(2)}s | Last sound @ target: ${lastSoundArrival.toFixed(2)}s`,x0,y0+lh*(ANGLES_DEG.length+1.5));
+      ctx.restore();}
 
-      // Heights for axis scaling: h_max = (v sinθ)^2 / (2g)
-      const maxHeights = anglesRad.map((th, i) => {
-        const vy = vMuzzle[i] * Math.sin(th);
-        return (vy*vy) / (2*g);
-      });
-      const yMax = Math.max(10, Math.max.apply(null, maxHeights) * 1.1);
-      const xMax = RANGE_M * 1.05;
-
-      // ----------------------------
-      // Coordinate system with equal scale (so circles look like circles)
-      // ----------------------------
-      function plotRect() {
-        // First compute the available pixel box
-        const w = canvas.width / (window.devicePixelRatio || 1);
-        const h = canvas.height / (window.devicePixelRatio || 1);
-        const availW = Math.max(50, w - PADDING.left - PADDING.right);
-        const availH = Math.max(50, h - PADDING.top - PADDING.bottom);
-
-        // meters per pixel scale must be equal in x & y
-        const scale = Math.min(availW / xMax, availH / yMax); // pixels per meter
-        const plotW = xMax * scale;
-        const plotH = yMax * scale;
-
-        // Center the plot area within the available box (anchored at left padding)
-        const x = PADDING.left;
-        const y = PADDING.top + (availH - plotH); // bottom-align ground with padding bottom
-        return { x, y, w: plotW, h: plotH, scale };
-      }
-
-      function xToPx(x) {
-        const r = plotRect();
-        return r.x + x * r.scale;
-      }
-      function yToPx(y) {
-        const r = plotRect();
-        const t = Math.min(Math.max(y, 0), yMax);
-        // y=0 at bottom of plot rectangle
-        return r.y + r.h - t * r.scale;
-      }
-
-      // ----------------------------
-      // Drawing helpers
-      // ----------------------------
-      function drawAxes() {
-        const r = plotRect();
-        ctx.save();
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = "#333";
-        ctx.fillStyle = "#333";
-
-        // Box (optional — comment out if undesired)
-        ctx.strokeStyle = "rgba(0,0,0,0.15)";
-        ctx.strokeRect(r.x, r.y, r.w, r.h);
-        ctx.strokeStyle = "#333";
-
-        // X axis (ground)
-        ctx.beginPath();
-        ctx.moveTo(xToPx(0), yToPx(0));
-        ctx.lineTo(xToPx(xMax), yToPx(0));
-        ctx.stroke();
-
-        // Y axis
-        ctx.beginPath();
-        ctx.moveTo(xToPx(0), yToPx(0));
-        ctx.lineTo(xToPx(0), yToPx(yMax));
-        ctx.stroke();
-
-        // Ticks & labels
-        ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        for (let i = 0; i <= AXIS_TICKS_X; i++) {
-          const xv = (xMax / AXIS_TICKS_X) * i;
-          const xp = xToPx(xv);
-          const yp = yToPx(0);
-          ctx.beginPath();
-          ctx.moveTo(xp, yp);
-          ctx.lineTo(xp, yp + 5);
-          ctx.stroke();
-          ctx.fillText(Math.round(xv).toString(), xp, yp + 7);
-        }
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-        for (let j = 0; j <= AXIS_TICKS_Y; j++) {
-          const yv = (yMax / AXIS_TICKS_Y) * j;
-          const yp = yToPx(yv);
-          ctx.beginPath();
-          ctx.moveTo(xToPx(0) - 5, yp);
-          ctx.lineTo(xToPx(0), yp);
-          ctx.stroke();
-          ctx.fillText(Math.round(yv).toString(), xToPx(0) - 7, yp);
-        }
-
-        // Axis titles
-        ctx.textAlign = "center";
-        ctx.textBaseline = "bottom";
-        ctx.fillText("Range (m)", r.x + r.w / 2, r.y + r.h + 40);
-        ctx.save();
-        ctx.translate(r.x - 45, r.y + r.h / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText("Height (m)", 0, 0);
-        ctx.restore();
-
-        // Target line and label
-        ctx.setLineDash([6, 6]);
-        ctx.strokeStyle = "#777";
-        ctx.beginPath();
-        ctx.moveTo(xToPx(RANGE_M), r.y);
-        ctx.lineTo(xToPx(RANGE_M), r.y + r.h);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.textAlign = "right";
-        ctx.textBaseline = "top";
-        ctx.fillStyle = "#333";
-        ctx.fillText("Target", xToPx(RANGE_M) - 4, r.y + 4);
-
-        ctx.restore();
-      }
-
-      function projectileXY(v, th, t) {
-        const x = v * Math.cos(th) * t;
-        const y = v * Math.sin(th) * t - 0.5 * g * t * t;
-        return [x, Math.max(0, y)]; // clip at ground
-      }
-
-      function colorFor(i, n) {
-        const h = Math.round((360 * i) / Math.max(1, n));
-        return `hsl(${h} 70% 40%)`;
-      }
-
-      function drawLegend() {
-        const r = plotRect();
-        const x0 = r.x + 10;
-        const y0 = r.y + 10;
-        const lh = 16;
-        ctx.save();
-        ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-
-        // Background box
-        const pad = 6;
-        const boxW = 420;
-        const boxH = lh * (ANGLES_DEG.length + 2) + pad * 2;
-        ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.strokeStyle = "rgba(0,0,0,0.25)";
-        ctx.lineWidth = 1;
-        ctx.fillRect(x0 - pad, y0 - pad, boxW, boxH);
-        ctx.strokeRect(x0 - pad, y0 - pad, boxW, boxH);
-
-        // Title
-        ctx.fillStyle = "#111";
-        ctx.fillText("θ (deg) | v (m/s) | fire @ t₀ | flight | sound@target", x0, y0 + lh * 0.5);
-
-        // Entries
-        for (let i = 0; i < ANGLES_DEG.length; i++) {
-          const y = y0 + lh * (i + 1.5);
-          ctx.fillStyle = colorFor(i, ANGLES_DEG.length);
-          ctx.fillRect(x0, y - 5, 18, 4);
-          ctx.fillStyle = "#111";
-          const line = `${ANGLES_DEG[i]}° | v=${vMuzzle[i].toFixed(1)} m/s | t₀=${tFire[i].toFixed(2)}s | ${tFlight[i].toFixed(2)}s | ${(tFire[i] + tSoundAtTarget).toFixed(2)}s`;
-          ctx.fillText(line, x0 + 26, y);
-        }
-        // Common times line
-        const yLast = y0 + lh * (ANGLES_DEG.length + 1.5);
-        ctx.fillStyle = "#333";
-        ctx.fillText(`Common impact: ${T_impact.toFixed(2)} s   |   Sound reaches target: ${tSoundAtTarget.toFixed(2)} s`, x0, yLast);
-
-        ctx.restore();
-      }
-
-      // ----------------------------
-      // Animation
-      // ----------------------------
-      let startRealTime = null;
-      function step(ts) {
-        if (startRealTime === null) startRealTime = ts;
-        const elapsedReal = (ts - startRealTime) / 1000; // seconds
-        const tNow = Math.min(tTotal, elapsedReal * (1.0 / REALTIME_SCALE)); // simulated time
-
-        // Clear
-        const w = canvas.width / (window.devicePixelRatio || 1);
-        const h = canvas.height / (window.devicePixelRatio || 1);
-        ctx.clearRect(0, 0, w, h);
-
-        // Axes & target
-        drawAxes();
-
-        // 1) Draw sound fronts (dashed circles) for each shot
-        for (let i = 0; i < ANGLES_DEG.length; i++) {
-          const t0 = tFire[i];
-          const dt = tNow - t0;
-          if (dt <= 0) continue; // not yet fired
-
-          const r = plotRect();
-          const radius_m = c_sound * dt;          // meters
-          const radius_px = radius_m * r.scale;   // pixels (equal scale)
-
-          ctx.save();
-          ctx.setLineDash([6, 6]);
-          ctx.lineWidth = 1.5;
-          ctx.strokeStyle = colorFor(i, ANGLES_DEG.length);
-          ctx.beginPath();
-          // Center at origin (0,0) in data coords
-          ctx.arc(xToPx(0), yToPx(0), radius_px, 0, 2 * Math.PI);
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // 2) Draw trajectories (solid lines), growing over time
-        for (let i = 0; i < ANGLES_DEG.length; i++) {
-          const th = anglesRad[i];
-          const v = vMuzzle[i];
-          const t0 = tFire[i];
-          const tf = tFlight[i];
-          const tau = tNow - t0;
-
-          ctx.save();
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = colorFor(i, ANGLES_DEG.length);
-          ctx.beginPath();
-
-          if (tau > 0) {
-            const tauEff = Math.min(tau, tf);
-            const n = Math.max(5, Math.floor(200 * tauEff / tf));
-            for (let k = 0; k <= n; k++) {
-              const tt = (tauEff * k) / n;
-              const [x, y] = projectileXY(v, th, tt);
-              const xp = xToPx(x);
-              const yp = yToPx(y);
-              if (k === 0) ctx.moveTo(xp, yp);
-              else ctx.lineTo(xp, yp);
-            }
-          }
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // Impact marker at common time
-        if (tNow >= T_impact) {
-          ctx.save();
-          ctx.fillStyle = "#000";
-          const xp = xToPx(RANGE_M);
-          const yp = yToPx(0);
-          ctx.beginPath();
-          ctx.arc(xp, yp, 4, 0, 2*Math.PI);
-          ctx.fill();
-          ctx.restore();
-        }
-
-        // Sound-at-target marker at its time (optional visual cue)
-        if (tNow >= tSoundAtTarget) {
-          ctx.save();
-          ctx.fillStyle = "#555";
-          const xp = xToPx(RANGE_M);
-          const yp = yToPx(0);
-          ctx.beginPath();
-          ctx.arc(xp, yp, 4, 0, 2*Math.PI);
-          ctx.fill();
-          ctx.restore();
-        }
-
-        // Legend and readout
-        drawLegend();
-        readout.textContent = `Sim time: ${tNow.toFixed(2)} s | Common impact: ${T_impact.toFixed(2)} s | Sound reaches target: ${tSoundAtTarget.toFixed(2)} s`;
-
-        // Notes about assumptions
-        notes.innerHTML = "Assumptions: constant g, no drag, level battery & target elevation, constant speed of sound (343 m/s)."
-          + " In reality, temperature, humidity, altitude, and wind slightly change c; drag and propellant-charge selection change flight & fire times.";
-
-        if (tNow < tTotal) {
-          requestAnimationFrame(step);
-        } else {
-          // Hold the final frame
-        }
-      }
-
-      requestAnimationFrame(step);
-    })();
+    let startReal=null;
+    function step(ts){if(startReal===null)startReal=ts;const tNow=Math.min(tStop,(ts-startReal)/1000/REALTIME_SCALE);
+      drawAxes();
+      // sound fronts
+      ANGLES_DEG.forEach((ang,i)=>{const dt=tNow-tFire[i];if(dt>0){const r=plotRect(),rad=c_sound*dt*r.scale;ctx.save();
+        ctx.setLineDash([6,6]);ctx.strokeStyle=colorFor(i,ANGLES_DEG.length);ctx.beginPath();ctx.arc(xToPx(0),yToPx(0),rad,0,2*Math.PI);ctx.stroke();ctx.restore();
+        if(tNow>=tSoundArrivals[i]){ctx.fillStyle=colorFor(i,ANGLES_DEG.length);ctx.beginPath();ctx.arc(xToPx(RANGE_M),yToPx(0),3,0,2*Math.PI);ctx.fill();}}});
+      // trajectories
+      ANGLES_DEG.forEach((ang,i)=>{const th=anglesRad[i],v=vMuzzle[i],t0=tFire[i],tf=tFlight[i],tau=tNow-t0;ctx.beginPath();if(tau>0){
+        const tauEff=Math.min(tau,tf),n=Math.max(5,Math.floor(200*tauEff/tf));
+        for(let k=0;k<=n;k++){const [x,y]=projectileXY(v,th,(tauEff*k)/n);const xp=xToPx(x),yp=yToPx(y);if(k===0)ctx.moveTo(xp,yp);else ctx.lineTo(xp,yp);}}
+        ctx.strokeStyle=colorFor(i,ANGLES_DEG.length);ctx.stroke();});
+      if(tNow>=T_impact){ctx.fillStyle="#000";ctx.beginPath();ctx.arc(xToPx(RANGE_M),yToPx(0),4,0,2*Math.PI);ctx.fill();}
+      drawLegend();
+      readout.textContent=`Sim time: ${tNow.toFixed(2)}s | Impact: ${T_impact.toFixed(2)}s | Last sound: ${lastSoundArrival.toFixed(2)}s`;
+      notes.textContent="Assumptions: no drag, level ground, constant g=9.81 m/s², c=343 m/s.";
+      if(tNow<tStop)requestAnimationFrame(step);}
+    requestAnimationFrame(step);
+  })();
   </script>
 </body>
 </html>
