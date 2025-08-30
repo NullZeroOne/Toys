@@ -136,8 +136,12 @@
           <input id="chkTrends" type="checkbox" />
         </div>
         <div class="row">
-          <label for="chkAutoDie" title="If enabled and the history window is full, cells alive for the entire window will die and spawn new cells outward from them.">AutoDie</label>
-          <input id="chkAutoDie" type="checkbox" />
+          <label for="chkAging" title="If enabled (with full history window), cells alive across the entire window will die and respawn outward.">Aging</label>
+          <input id="chkAging" type="checkbox" />
+        </div>
+        <div class="row">
+          <label for="chkPopRebal" title="If enabled, each generation nudges the population toward Fill % by activating/deactivating one random cell.">PopRebal</label>
+          <input id="chkPopRebal" type="checkbox" />
         </div>
         <div class="row">
           <label for="inputHistoryCap" title="Number of board states to keep in history (undo/redo window).">History size</label>
@@ -198,7 +202,8 @@
     const inputHistoryCap = document.getElementById('inputHistoryCap');
     const chkToroidal = document.getElementById('chkToroidal');
     const chkTrends = document.getElementById('chkTrends');
-    const chkAutoDie = document.getElementById('chkAutoDie');
+    const chkAging = document.getElementById('chkAging');
+    const chkPopRebal = document.getElementById('chkPopRebal');
 
     const statGeneration = document.getElementById('statGeneration');
     const statLive = document.getElementById('statLive');
@@ -318,7 +323,7 @@
       // Disable everything except Pause when running
       const allInputs = [
         btnPlay, btnStepForward, btnStepBack, btnFill, btnClear, btnResizeFit,
-        inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap, chkToroidal, chkTrends, chkAutoDie
+        inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap, chkToroidal, chkTrends, chkAging, chkPopRebal
       ];
       for (const el of allInputs) el.disabled = isRunning;
 
@@ -379,7 +384,7 @@
       }
     }
 
-    // ---- AutoDie helpers ----
+    // ---- Aging helpers ----
     function wrapOrBound(r, c) {
       if (chkToroidal.checked) {
         if (r < 0) r = rows - 1; else if (r >= rows) r = 0;
@@ -391,25 +396,22 @@
       }
     }
 
-    function indexAt(r, c) {
-      return r * cols + c;
-    }
+    function indexAt(r, c) { return r * cols + c; }
 
-    function pickEmptyAtIncreasingRadius(centerIndex, emptiesArr, emptyFlagArr) {
-      // centerIndex -> (cr, cc)
+    function pickEmptyAtIncreasingRadius(centerIndex, emptyFlagArr) {
       const cr = Math.floor(centerIndex / cols);
       const cc = centerIndex % cols;
       const total = rows * cols;
-      let remainingEmpties = emptiesArr.length;
-      if (remainingEmpties === 0) return -1;
+      // Fast check: any empty at all?
+      let anyEmpty = false;
+      for (let i = 0; i < total; i++) { if (emptyFlagArr[i]) { anyEmpty = true; break; } }
+      if (!anyEmpty) return -1;
 
-      // Try radius = 1, 2, 3, ... until we either find an empty cell to activate or no empties exist
-      for (let radius = 1; remainingEmpties > 0; radius++) {
+      for (let radius = 1; radius <= Math.max(rows, cols); radius++) {
         const candidates = [];
-        // Collect positions with Chebyshev distance exactly = radius
         for (let dr = -radius; dr <= radius; dr++) {
           for (let dc = -radius; dc <= radius; dc++) {
-            if (Math.max(Math.abs(dr), Math.abs(dc)) !== radius) continue; // exact ring
+            if (Math.max(Math.abs(dr), Math.abs(dc)) !== radius) continue;
             let rr = cr + dr, cc2 = cc + dc;
             const wp = wrapOrBound(rr, cc2);
             if (wp.out) continue;
@@ -419,30 +421,26 @@
           }
         }
         if (candidates.length > 0) {
-          const pick = candidates[(Math.random() * candidates.length) | 0];
-          return pick;
+          return candidates[(Math.random() * candidates.length) | 0];
         }
-        // If we get here, no candidates at this radius; keep expanding.
       }
       return -1;
     }
 
-    function applyAutoDieIfNeeded() {
-      if (!chkAutoDie.checked) return;
-      // We want a full window of size 'historyCap' consisting of previous (historyCap-1) snapshots plus current grid.
-      if (history.length < Math.max(1, historyCap - 1)) return; // not enough past states
+    function applyAgingIfNeeded() {
+      if (!chkAging.checked) return;
+      // Require "full" window: previous (historyCap-1) snapshots exist
+      if (history.length < Math.max(1, historyCap - 1)) return;
 
-      const windowLen = Math.min(historyCap - 1, history.length); // number of previous snapshots to include
+      const windowLen = Math.min(historyCap - 1, history.length);
       const total = rows * cols;
       const snaps = [];
-      for (let k = 0; k < windowLen; k++) {
-        snaps.push(history[cursor - k]); // previous states
-      }
+      for (let k = 0; k < windowLen; k++) snaps.push(history[cursor - k]);
 
-      // Identify persistent-alive cells across (windowLen previous) + current
+      // Identify always-alive cells
       const toKill = [];
       for (let i = 0; i < total; i++) {
-        if (grid[i] !== 1) continue; // current must be alive
+        if (grid[i] !== 1) continue;
         let allAlive = true;
         for (let s = 0; s < snaps.length; s++) {
           if (snaps[s].grid[i] !== 1) { allAlive = false; break; }
@@ -451,66 +449,70 @@
       }
       if (toKill.length === 0) return;
 
-      // Prepare empty flags and an array of current empties
+      // Build empty flags
       const emptyFlag = new Array(total);
-      const empties = [];
-      for (let i = 0; i < total; i++) {
-        const isEmpty = grid[i] === 0;
-        emptyFlag[i] = isEmpty;
-        if (isEmpty) empties.push(i);
-      }
+      for (let i = 0; i < total; i++) emptyFlag[i] = (grid[i] === 0);
 
-      // For each dying cell: kill it, mark empty, then try to activate a nearby empty expanding outward
+      // Kill & respawn outward
       for (const i of toKill) {
-        // Kill the cell
-        if (grid[i] === 1) {
-          grid[i] = 0;
-          if (!emptyFlag[i]) {
-            emptyFlag[i] = true;
-            empties.push(i);
-          }
-        }
-        // Try to spawn
-        const j = pickEmptyAtIncreasingRadius(i, empties, emptyFlag);
-        if (j >= 0) {
-          grid[j] = 1;
-          // mark as non-empty
-          emptyFlag[j] = false;
-          // remove j from empties array (swap-remove)
-          const pos = empties.indexOf(j);
-          if (pos >= 0) {
-            empties[pos] = empties[empties.length - 1];
-            empties.pop();
-          }
-        } else {
-          // no empty found anywhere; stop early if grid is full
-          // (we don't break, because another dying cell might still free a neighbor used by later ones)
-        }
+        if (grid[i] === 1) { grid[i] = 0; emptyFlag[i] = true; }
+        const j = pickEmptyAtIncreasingRadius(i, emptyFlag);
+        if (j >= 0) { grid[j] = 1; emptyFlag[j] = false; }
       }
     }
 
-    function stepForwardComputeAndMaybeAutoDie() {
-      // Compute nextGrid from grid, then swap (producing the new "current" grid)
+    // ---- PopRebal ----
+    function applyPopRebalIfNeeded() {
+      if (!chkPopRebal.checked) return;
+      const total = rows * cols;
+      if (total === 0) return;
+      const v = parseFloat(inputFillPercent.value);
+      const targetPct = clamp(isFinite(v) ? v : 0, 0, 100);
+      const live = countLive();
+      const curPct = (live / total) * 100;
+
+      if (curPct < targetPct) {
+        // activate one random empty cell
+        const empties = [];
+        for (let i = 0; i < total; i++) if (grid[i] === 0) empties.push(i);
+        if (empties.length > 0) {
+          const j = empties[(Math.random() * empties.length) | 0];
+          grid[j] = 1;
+        }
+      } else if (curPct > targetPct) {
+        // deactivate one random live cell
+        const lives = [];
+        for (let i = 0; i < total; i++) if (grid[i] === 1) lives.push(i);
+        if (lives.length > 0) {
+          const j = lives[(Math.random() * lives.length) | 0];
+          grid[j] = 0;
+        }
+      }
+      // equal: do nothing
+    }
+
+    function stepForwardComputeAndMutations() {
+      // Compute next generation
       computeNextGeneration(nextGrid);
       const tmp = grid;
       grid = nextGrid;
       nextGrid = tmp;
       generation += 1;
 
-      // Apply AutoDie using current grid and previous snapshots
-      applyAutoDieIfNeeded();
+      // Apply post-step mutations
+      applyAgingIfNeeded();
+      applyPopRebalIfNeeded();
 
       draw();
       updateStatus();
     }
 
     function stepForwardUser() {
-      // If there is redo, go forward in history (do NOT recompute or re-apply AutoDie)
+      // If there is redo, move forward in history without recomputing
       if (canStepForwardRedo()) {
         loadHistoryAt(cursor + 1);
       } else {
-        // Compute a new generation (+ optional AutoDie) and push to history
-        stepForwardComputeAndMaybeAutoDie();
+        stepForwardComputeAndMutations();
         pushHistorySnapshot();
       }
     }
@@ -577,9 +579,7 @@
       }
     }
 
-    function draw() {
-      drawTrendsOrBW();
-    }
+    function draw() { drawTrendsOrBW(); }
 
     // ====== Fill & Clear ======
     function doFill() {
@@ -643,8 +643,8 @@
       if (!running) return;
       const t0 = performance.now();
 
-      // Each tick is exactly one generation (+ optional AutoDie)
-      stepForwardComputeAndMaybeAutoDie();
+      // Each tick is exactly one generation (+ optional Aging & PopRebal)
+      stepForwardComputeAndMutations();
       pushHistorySnapshot();
 
       const elapsed = performance.now() - t0;
@@ -794,7 +794,11 @@
       draw(); // toggle between BW and Trends
     });
 
-    chkAutoDie.addEventListener('change', () => {
+    chkAging.addEventListener('change', () => {
+      // No immediate effect; applies on next computed generation
+    });
+
+    chkPopRebal.addEventListener('change', () => {
       // No immediate effect; applies on next computed generation
     });
 
