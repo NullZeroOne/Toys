@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conway's Game of Life</title>
+  <style>
+    :root {
+      --panel-bg: #f6f7f9;
+      --panel-border: #e1e4e8;
+      --accent: #2f6feb;
+      --text: #111;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    .app {
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    .controls {
+      width: 320px;
+      max-width: 40vw;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--panel-border);
+      padding: 16px;
+      overflow-y: auto;
+    }
+    .controls h1 {
+      font-size: 18px;
+      margin: 0 0 12px 0;
+    }
+    .group {
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed var(--panel-border);
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 6px 0;
+      flex-wrap: wrap;
+    }
+    label { font-size: 14px; }
+    input[type="number"] {
+      width: 110px;
+      padding: 6px 8px;
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    input[type="checkbox"] {
+      transform: translateY(1px);
+      width: 16px; height: 16px;
+    }
+    button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--panel-border);
+      background: white;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button.primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .status {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 10px;
+      font-size: 13px;
+    }
+    .status div { white-space: nowrap; }
+    .board-wrap {
+      position: relative;
+      flex: 1;
+      overflow: auto;
+      background: #fff;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      background: #ffffff;
+    }
+    .board-disabled {
+      pointer-events: none;
+      opacity: 0.9;
+    }
+    .hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="controls" aria-label="Controls">
+      <h1>Conway's Game of Life</h1>
+
+      <div class="group" aria-label="Playback controls">
+        <div class="row">
+          <button id="btnPlay" class="primary" title="Play">Play</button>
+          <button id="btnPause" title="Pause">Pause</button>
+        </div>
+        <div class="row">
+          <button id="btnStepBack" title="Step back">⟵ Step Back</button>
+          <button id="btnStepForward" title="Step forward">Step Forward ⟶</button>
+        </div>
+        <div class="row">
+          <label for="inputMaxSpeed" title="Maximum moves per second while playing">Max speed (moves/s)</label>
+          <input id="inputMaxSpeed" type="number" step="0.1" min="0.1" value="60" />
+        </div>
+        <div class="hint">During Play, all inputs are disabled except Pause.</div>
+      </div>
+
+      <div class="group" aria-label="Grid settings">
+        <div class="row">
+          <label for="chkToroidal">Toroidal topology</label>
+          <input id="chkToroidal" type="checkbox" />
+        </div>
+        <div class="row">
+          <label for="inputBlockSize">Block size (px)</label>
+          <input id="inputBlockSize" type="number" min="1" step="1" value="10" />
+        </div>
+        <div class="row">
+          <button id="btnResizeFit" title="Resize grid to fit available area with current block size">Resize to Fit</button>
+        </div>
+      </div>
+
+      <div class="group" aria-label="Fill & clear">
+        <div class="row">
+          <label for="inputFillPercent">Fill %</label>
+          <input id="inputFillPercent" type="number" min="0" max="100" step="1" value="30" />
+          <button id="btnFill">Fill</button>
+        </div>
+        <div class="row">
+          <button id="btnClear">Clear</button>
+        </div>
+      </div>
+
+      <div class="group" aria-label="Status">
+        <div class="status">
+          <div><strong>Generation:</strong> <span id="statGeneration">0</span></div>
+          <div><strong>Live cells:</strong> <span id="statLive">0</span></div>
+          <div><strong>Grid:</strong> <span id="statSize">0×0</span></div>
+          <div><strong>Topology:</strong> <span id="statTopology">Bounded</span></div>
+        </div>
+        <div class="hint">Tip: Click a cell to toggle. Drag continues the last action.</div>
+      </div>
+    </aside>
+
+    <main class="board-wrap">
+      <canvas id="board" aria-label="Game board"></canvas>
+    </main>
+  </div>
+
+  <script>
+  (() => {
+    // ====== State ======
+    const canvas = document.getElementById('board');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    const btnPlay = document.getElementById('btnPlay');
+    const btnPause = document.getElementById('btnPause');
+    const btnStepForward = document.getElementById('btnStepForward');
+    const btnStepBack = document.getElementById('btnStepBack');
+    const btnFill = document.getElementById('btnFill');
+    const btnClear = document.getElementById('btnClear');
+    const btnResizeFit = document.getElementById('btnResizeFit');
+    const inputFillPercent = document.getElementById('inputFillPercent');
+    const inputBlockSize = document.getElementById('inputBlockSize');
+    const inputMaxSpeed = document.getElementById('inputMaxSpeed');
+    const chkToroidal = document.getElementById('chkToroidal');
+
+    const statGeneration = document.getElementById('statGeneration');
+    const statLive = document.getElementById('statLive');
+    const statSize = document.getElementById('statSize');
+    const statTopology = document.getElementById('statTopology');
+    const boardWrap = document.querySelector('.board-wrap');
+
+    const HISTORY_CAP = 10;
+    let rows = 0, cols = 0;
+    let blockSize = 10;
+    let grid = new Uint8Array(0);
+    let nextGrid = new Uint8Array(0);
+    let generation = 0;
+    let running = false;
+    let playTimer = null;
+    let history = []; // array of {grid: Uint8Array, generation: number}
+    let cursor = -1;  // index in history of current state
+    let dragState = null; // null | 0 | 1
+    let hadRedo = false;
+
+    // ====== Utilities ======
+    function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+    function idx(r,c) { return r * cols + c; }
+
+    function setCanvasSizeToGrid() {
+      canvas.width = cols * blockSize;
+      canvas.height = rows * blockSize;
+    }
+
+    function computeFitGridDimensions() {
+      const rect = boardWrap.getBoundingClientRect();
+      const w = Math.max(0, Math.floor(rect.width));
+      const h = Math.max(0, Math.floor(rect.height));
+      const newCols = Math.max(1, Math.floor(w / blockSize));
+      const newRows = Math.max(1, Math.floor(h / blockSize));
+      return { newRows, newCols };
+    }
+
+    function resizeGridToFit(keepIntersection = true) {
+      const { newRows, newCols } = computeFitGridDimensions();
+      if (newRows === rows && newCols === cols) return;
+
+      const newGrid = new Uint8Array(newRows * newCols);
+      if (keepIntersection && grid.length) {
+        const cr = Math.min(rows, newRows);
+        const cc = Math.min(cols, newCols);
+        for (let r = 0; r < cr; r++) {
+          for (let c = 0; c < cc; c++) {
+            newGrid[r * newCols + c] = grid[idx(r,c)];
+          }
+        }
+      }
+      rows = newRows; cols = newCols;
+      grid = newGrid;
+      nextGrid = new Uint8Array(rows * cols);
+      setCanvasSizeToGrid();
+      // Dimension change invalidates history snapshots
+      resetHistory();
+      draw();
+      updateStatus();
+    }
+
+    function resetHistory() {
+      history = [];
+      cursor = -1;
+      pushHistorySnapshot(); // snapshot current grid as starting point
+      updateHistoryButtons();
+    }
+
+    function pushHistorySnapshot(customGrid=null, customGeneration=null) {
+      // Truncate any redo states
+      if (cursor < history.length - 1) {
+        history = history.slice(0, cursor + 1);
+      }
+      const snapGrid = (customGrid ? customGrid : grid).slice(0);
+      const snapGen = (customGeneration !== null ? customGeneration : generation);
+      history.push({ grid: snapGrid, generation: snapGen });
+      // Enforce cap from the oldest side
+      if (history.length > HISTORY_CAP) {
+        history.shift();
+      }
+      cursor = history.length - 1;
+      updateHistoryButtons();
+    }
+
+    function canStepBack() { return cursor > 0; }
+    function canStepForwardRedo() { return cursor < history.length - 1; }
+
+    function loadHistoryAt(newCursor) {
+      if (newCursor < 0 || newCursor >= history.length) return;
+      cursor = newCursor;
+      const snap = history[cursor];
+      if (snap.grid.length !== grid.length) {
+        // Different dimensions (shouldn't happen because we clear history on resize)
+        grid = snap.grid.slice(0);
+        rows = Math.floor(grid.length / cols); // fallback, likely wrong; but history should be cleared on resize
+      } else {
+        grid.set(snap.grid);
+      }
+      generation = snap.generation;
+      draw();
+      updateStatus();
+      updateHistoryButtons();
+    }
+
+    function updateHistoryButtons() {
+      btnStepBack.disabled = !canStepBack() || running;
+      // StepForward is disabled only during play; otherwise enabled (even if no redo, it computes a new generation)
+      btnStepForward.disabled = running;
+    }
+
+    function setControlsForRunning(isRunning) {
+      running = isRunning;
+      // Disable everything except Pause when running
+      const allInputs = [
+        btnPlay, btnStepForward, btnStepBack, btnFill, btnClear, btnResizeFit,
+        inputFillPercent, inputBlockSize, inputMaxSpeed, chkToroidal
+      ];
+      for (const el of allInputs) el.disabled = isRunning;
+
+      // Play button should be disabled while running; Pause enabled only while running
+      btnPlay.disabled = isRunning;
+      btnPause.disabled = !isRunning;
+
+      // Board interactions disabled while running
+      canvas.classList.toggle('board-disabled', isRunning);
+
+      // History buttons reflect running state
+      updateHistoryButtons();
+    }
+
+    function updateStatus() {
+      statGeneration.textContent = String(generation);
+      statSize.textContent = cols + '×' + rows;
+      statTopology.textContent = chkToroidal.checked ? 'Toroidal' : 'Bounded';
+      statLive.textContent = String(countLive());
+    }
+
+    function countLive() {
+      let n = 0;
+      for (let i = 0; i < grid.length; i++) n += grid[i];
+      return n;
+    }
+
+    // ====== Game Logic ======
+    function neighborCount(r, c) {
+      let sum = 0;
+      const tor = chkToroidal.checked;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          let rr = r + dr, cc = c + dc;
+          if (tor) {
+            if (rr < 0) rr = rows - 1; else if (rr >= rows) rr = 0;
+            if (cc < 0) cc = cols - 1; else if (cc >= cols) cc = 0;
+            sum += grid[idx(rr, cc)];
+          } else {
+            if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+            sum += grid[idx(rr, cc)];
+          }
+        }
+      }
+      return sum;
+    }
+
+    function computeNextGeneration(out) {
+      // out must be a Uint8Array of size rows*cols
+      let liveCount = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const i = idx(r,c);
+          const n = neighborCount(r,c);
+          const alive = grid[i] === 1;
+          let next = 0;
+          if (alive) {
+            next = (n === 2 || n === 3) ? 1 : 0;
+          } else {
+            next = (n === 3) ? 1 : 0;
+          }
+          out[i] = next;
+          liveCount += next;
+        }
+      }
+      return liveCount;
+    }
+
+    function stepForwardCompute() {
+      // Compute nextGrid from grid, then swap
+      const aliveNext = computeNextGeneration(nextGrid);
+      // Swap buffers
+      const tmp = grid;
+      grid = nextGrid;
+      nextGrid = tmp;
+      generation += 1;
+      draw();
+      updateStatus();
+    }
+
+    function stepForwardUser() {
+      // If there is redo, go forward in history
+      if (canStepForwardRedo()) {
+        loadHistoryAt(cursor + 1);
+      } else {
+        // Compute a new generation and push to history
+        stepForwardCompute();
+        pushHistorySnapshot();
+      }
+    }
+
+    function stepBackUser() {
+      if (!canStepBack()) return;
+      loadHistoryAt(cursor - 1);
+    }
+
+    // ====== Rendering ======
+    function draw() {
+      // Clear
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw alive cells
+      if (blockSize >= 4) {
+        // Draw by rows to reduce draw calls somewhat
+        ctx.fillStyle = '#111';
+      } else {
+        ctx.fillStyle = '#111';
+      }
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[idx(r,c)]) {
+            ctx.fillRect(c * blockSize, r * blockSize, blockSize, blockSize);
+          }
+        }
+      }
+      // Optional: draw grid lines when large blocks
+      if (blockSize >= 16) {
+        ctx.strokeStyle = '#eee';
+        ctx.lineWidth = 1;
+        // verticals
+        for (let c = 0; c <= cols; c++) {
+          const x = c * blockSize + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, rows * blockSize);
+          ctx.stroke();
+        }
+        // horizontals
+        for (let r = 0; r <= rows; r++) {
+          const y = r * blockSize + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(cols * blockSize, y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ====== Fill & Clear ======
+    function doFill() {
+      // Push pre-fill snapshot so one Step Back restores prior board
+      pushHistorySnapshot();
+      const pctRaw = parseFloat(inputFillPercent.value);
+      const pct = clamp(isFinite(pctRaw) ? pctRaw : 0, 0, 100);
+      inputFillPercent.value = String(Math.round(pct));
+      const total = rows * cols;
+      const target = Math.round((pct / 100) * total);
+      // Reset all to 0 then set exactly 'target' random distinct cells to 1
+      grid.fill(0);
+      // Reservoir-like uniform selection without replacement:
+      // We can use a Fisher-Yates approach picking 'target' positions.
+      // For memory simplicity, use a set when target << total.
+      if (target > 0) {
+        if (target * 3 < total) {
+          const chosen = new Set();
+          while (chosen.size < target) {
+            chosen.add((Math.random() * total) | 0);
+          }
+          for (const i of chosen) grid[i] = 1;
+        } else {
+          // Fill all then turn off (total - target) random positions
+          grid.fill(1);
+          let toZero = total - target;
+          const chosen = new Set();
+          while (chosen.size < toZero) {
+            chosen.add((Math.random() * total) | 0);
+          }
+          for (const i of chosen) grid[i] = 0;
+        }
+      }
+      generation = 0; // Treat as a fresh board; spec allows reset on Clear; for Fill we'll keep gen? We'll keep 0 for predictability.
+      // Push post-fill snapshot
+      pushHistorySnapshot();
+      draw();
+      updateStatus();
+    }
+
+    function doClear() {
+      // Push pre-clear snapshot
+      pushHistorySnapshot();
+      grid.fill(0);
+      generation = 0; // Per spec default: reset to 0
+      // Push post-clear snapshot
+      pushHistorySnapshot();
+      draw();
+      updateStatus();
+    }
+
+    // ====== Play Loop ======
+    function getDesiredDelayMs() {
+      const v = parseFloat(inputMaxSpeed.value);
+      const movesPerSec = isFinite(v) && v > 0 ? v : 60;
+      return 1000 / movesPerSec;
+    }
+
+    function dropRedoIfAny() {
+      if (cursor < history.length - 1) {
+        history = history.slice(0, cursor + 1);
+      }
+    }
+
+    function tick() {
+      if (!running) return;
+      const t0 = performance.now();
+
+      // Each tick is exactly one generation
+      stepForwardCompute();
+      pushHistorySnapshot();
+
+      const elapsed = performance.now() - t0;
+      const delay = Math.max(0, getDesiredDelayMs() - elapsed);
+      playTimer = setTimeout(tick, delay);
+    }
+
+    function startPlay() {
+      if (running) return;
+      dropRedoIfAny();
+      setControlsForRunning(true);
+      tick();
+    }
+
+    function pausePlay() {
+      if (!running) return;
+      setControlsForRunning(false);
+      if (playTimer) {
+        clearTimeout(playTimer);
+        playTimer = null;
+      }
+    }
+
+    // ====== Board Editing (click-to-toggle, drag continues last action) ======
+    function eventToCell(ev) {
+      const rect = canvas.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const c = Math.floor(x / blockSize);
+      const r = Math.floor(y / blockSize);
+      if (r < 0 || r >= rows || c < 0 || c >= cols) return null;
+      return { r, c, i: idx(r,c) };
+    }
+
+    function handlePointerDown(ev) {
+      if (running) return; // disabled during play
+      const cell = eventToCell(ev);
+      if (!cell) return;
+      const current = grid[cell.i];
+      const target = current ? 0 : 1;
+      dragState = target;
+      if (grid[cell.i] !== target) {
+        grid[cell.i] = target;
+        draw();
+        updateStatus();
+      }
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp, { once: true });
+      canvas.setPointerCapture && canvas.setPointerCapture(ev.pointerId || 1);
+    }
+
+    function handlePointerMove(ev) {
+      if (dragState === null) return;
+      const cell = eventToCell(ev);
+      if (!cell) return;
+      if (grid[cell.i] !== dragState) {
+        grid[cell.i] = dragState;
+        draw();
+        updateStatus();
+      }
+    }
+
+    function handlePointerUp(_ev) {
+      dragState = null;
+      window.removeEventListener('pointermove', handlePointerMove);
+    }
+
+    // ====== Initialization ======
+    function init() {
+      blockSize = clamp(parseInt(inputBlockSize.value, 10) || 10, 1, 4096);
+      inputBlockSize.value = String(blockSize);
+      // Initial grid fills available area after leaving space for UI
+      resizeGridToFit(false);
+      // Start with empty board and snapshot initial state
+      grid.fill(0);
+      generation = 0;
+      resetHistory();
+      draw();
+      updateStatus();
+    }
+
+    // ====== Event wiring ======
+    btnPlay.addEventListener('click', startPlay);
+    btnPause.addEventListener('click', pausePlay);
+    btnStepForward.addEventListener('click', () => {
+      if (running) return;
+      stepForwardUser();
+    });
+    btnStepBack.addEventListener('click', () => {
+      if (running) return;
+      stepBackUser();
+    });
+
+    btnFill.addEventListener('click', () => {
+      if (running) return;
+      // Filling after stepping back truncates redo (spec)
+      dropRedoIfAny();
+      doFill();
+    });
+
+    btnClear.addEventListener('click', () => {
+      if (running) return;
+      dropRedoIfAny();
+      doClear();
+    });
+
+    btnResizeFit.addEventListener('click', () => {
+      if (running) return;
+      resizeGridToFit(true);
+    });
+
+    inputBlockSize.addEventListener('change', () => {
+      if (running) return;
+      const v = Math.floor(Number(inputBlockSize.value));
+      if (!isFinite(v) || v < 1) {
+        inputBlockSize.value = String(blockSize);
+        return;
+      }
+      blockSize = v;
+      // Per spec: changing block size recomputes grid to fit
+      resizeGridToFit(true);
+    });
+
+    chkToroidal.addEventListener('change', () => {
+      updateStatus(); // takes effect on next evolution step
+    });
+
+    // Keep logical grid size stable on window resize (per spec).
+    // We do NOT recompute automatically; user can click "Resize to Fit".
+    window.addEventListener('resize', () => {
+      // Do nothing to logical rows/cols. We keep canvas fixed-size too.
+      // (Canvas may overflow; user can scroll or click Resize to Fit.)
+    });
+
+    // Board interactions
+    canvas.addEventListener('pointerdown', handlePointerDown);
+
+    // Kick off
+    init();
+  })();
+  </script>
+</body>
+</html>
