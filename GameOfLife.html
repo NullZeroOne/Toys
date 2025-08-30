@@ -141,8 +141,13 @@
           <input id="chkAging" type="checkbox" />
         </div>
         <div class="row">
-          <label for="chkPopRebal" title="If enabled, each generation nudges population toward Fill % within a threshold, by adjusting Adj % of cells.">PopRebal</label>
+          <label for="chkPopRebal" title="If enabled, temporarily modifies Life rules when live% deviates from Fill% by ≥ Threshold %.">PopRebal</label>
           <input id="chkPopRebal" type="checkbox" />
+        </div>
+        <div class="row subtle">
+          <span>When PopRebal is on:</span>
+          <label for="inputRebalThreshold" title="Deadzone around Fill % where no rule change occurs">Threshold %</label>
+          <input id="inputRebalThreshold" type="number" min="0" max="100" step="1" value="5" />
         </div>
         <div class="row">
           <label for="inputHistoryCap" title="Number of board states to keep in history (undo/redo window).">History size</label>
@@ -162,13 +167,6 @@
           <label for="inputFillPercent">Fill %</label>
           <input id="inputFillPercent" type="number" min="0" max="100" step="1" value="30" />
           <button id="btnFill">Fill</button>
-        </div>
-        <div class="row subtle">
-          <span>When PopRebal is on:</span>
-          <label for="inputRebalThreshold" title="Deadzone around Fill % where no changes happen">Threshold %</label>
-          <input id="inputRebalThreshold" type="number" min="0" max="100" step="1" value="5" />
-          <label for="inputRebalAdj" title="Percent of applicable cells to flip per generation when outside threshold">Adj %</label>
-          <input id="inputRebalAdj" type="number" min="0" max="100" step="1" value="10" />
         </div>
         <div class="row">
           <button id="btnClear">Clear</button>
@@ -210,7 +208,6 @@
     const inputMaxSpeed = document.getElementById('inputMaxSpeed');
     const inputHistoryCap = document.getElementById('inputHistoryCap');
     const inputRebalThreshold = document.getElementById('inputRebalThreshold');
-    const inputRebalAdj = document.getElementById('inputRebalAdj');
     const chkToroidal = document.getElementById('chkToroidal');
     const chkTrends = document.getElementById('chkTrends');
     const chkAging = document.getElementById('chkAging');
@@ -337,7 +334,7 @@
       const allInputs = [
         btnPlay, btnStepForward, btnStepBack, btnFill, btnClear, btnResizeFit,
         inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap,
-        inputRebalThreshold, inputRebalAdj, chkToroidal, chkTrends, chkAging, chkPopRebal
+        inputRebalThreshold, chkToroidal, chkTrends, chkAging, chkPopRebal
       ];
       for (const el of allInputs) el.disabled = isRunning;
 
@@ -390,14 +387,40 @@
       return sum;
     }
 
+    function getPopRebalMode() {
+      if (!chkPopRebal.checked) return 'none';
+      const total = rows * cols;
+      if (!total) return 'none';
+      const live = countLive();
+      const curPct = (live / total) * 100;
+      const targetPct = clamp(parseFloat(inputFillPercent.value), 0, 100);
+      const threshold = clamp(parseFloat(inputRebalThreshold.value), 0, 100);
+      if (curPct < targetPct - threshold) return 'low';   // too low: broaden births
+      if (curPct > targetPct + threshold) return 'high';  // too high: stricter survival
+      return 'none';
+    }
+
     function computeNextGeneration(out) {
-      // out must be a Uint8Array of size rows*cols
+      const mode = getPopRebalMode();
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const i = idx(r,c);
           const n = neighborCount(r,c);
           const alive = grid[i] === 1;
-          out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0) : (n === 3 ? 1 : 0);
+
+          if (mode === 'low') {
+            // Too low: allow births at n==2 or 3; survival stays default (2 or 3)
+            out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0)
+                           : ((n === 2 || n === 3) ? 1 : 0);
+          } else if (mode === 'high') {
+            // Too high: survival only at n==3; births remain default (n==3)
+            out[i] = alive ? ((n === 3) ? 1 : 0)
+                           : ((n === 3) ? 1 : 0);
+          } else {
+            // Default Life
+            out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0)
+                           : ((n === 3) ? 1 : 0);
+          }
         }
       }
     }
@@ -479,53 +502,8 @@
       }
     }
 
-    // ---- PopRebal ----
-    function sampleIndices(list, k) {
-      // In-place partial Fisher–Yates to sample k unique items (<= list.length)
-      k = Math.min(k, list.length);
-      for (let i = 0; i < k; i++) {
-        const j = i + ((Math.random() * (list.length - i)) | 0);
-        const tmp = list[i]; list[i] = list[j]; list[j] = tmp;
-      }
-      return list.slice(0, k);
-    }
-
-    function applyPopRebalIfNeeded() {
-      if (!chkPopRebal.checked) return;
-      const total = rows * cols;
-      if (total === 0) return;
-
-      const targetPct = clamp(parseFloat(inputFillPercent.value), 0, 100);
-      const threshold = clamp(parseFloat(inputRebalThreshold.value), 0, 100);
-      const adjPct = clamp(parseFloat(inputRebalAdj.value), 0, 100);
-
-      const live = countLive();
-      const curPct = (live / total) * 100;
-
-      if (curPct > targetPct + threshold) {
-        // deactivate Adj% of current live cells
-        const lives = [];
-        for (let i = 0; i < total; i++) if (grid[i] === 1) lives.push(i);
-        if (lives.length > 0 && adjPct > 0) {
-          const k = Math.round((adjPct / 100) * lives.length);
-          const chosen = sampleIndices(lives, k);
-          for (const j of chosen) grid[j] = 0;
-        }
-      } else if (curPct < targetPct - threshold) {
-        // activate Adj% of current empty cells
-        const empties = [];
-        for (let i = 0; i < total; i++) if (grid[i] === 0) empties.push(i);
-        if (empties.length > 0 && adjPct > 0) {
-          const k = Math.round((adjPct / 100) * empties.length);
-          const chosen = sampleIndices(empties, k);
-          for (const j of chosen) grid[j] = 1;
-        }
-      }
-      // inside threshold: do nothing
-    }
-
     function stepForwardComputeAndMutations() {
-      // Compute next generation
+      // Compute next generation with possibly modified rules
       computeNextGeneration(nextGrid);
       const tmp = grid;
       grid = nextGrid;
@@ -534,7 +512,6 @@
 
       // Apply post-step mutations
       applyAgingIfNeeded();
-      applyPopRebalIfNeeded();
 
       draw();
       updateStatus();
@@ -676,7 +653,7 @@
       if (!running) return;
       const t0 = performance.now();
 
-      // Each tick is exactly one generation (+ optional Aging & PopRebal)
+      // Each tick is exactly one generation (with PopRebal rule tweak if applicable) + Aging
       stepForwardComputeAndMutations();
       pushHistorySnapshot();
 
@@ -701,7 +678,7 @@
       }
     }
 
-    // ====== Board Editing (click-to-toggle, drag continues last action) ======
+    // ====== Board Editing (click-to-toggle, drag continues the last action) ======
     function eventToCell(ev) {
       const rect = canvas.getBoundingClientRect();
       const x = ev.clientX - rect.left;
@@ -746,12 +723,6 @@
     }
 
     // ====== Initialization ======
-    function syncPopRebalInputsEnabled() {
-      const on = chkPopRebal.checked && !running;
-      inputRebalThreshold.disabled = !on;
-      inputRebalAdj.disabled = !on;
-    }
-
     function init() {
       blockSize = clamp(parseInt(inputBlockSize.value, 10) || 10, 1, 4096);
       inputBlockSize.value = String(blockSize);
@@ -767,7 +738,6 @@
       resetHistory();
       draw();
       updateStatus();
-      syncPopRebalInputsEnabled();
     }
 
     // ====== Event wiring ======
@@ -839,7 +809,7 @@
     });
 
     chkPopRebal.addEventListener('change', () => {
-      syncPopRebalInputsEnabled();
+      // No immediate effect; rules are checked each generation
     });
 
     // Keep logical grid size stable on window resize (manual recompute via button)
