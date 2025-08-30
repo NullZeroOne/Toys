@@ -62,7 +62,7 @@
       const dateStr = params.get("date");
       const message = document.getElementById("message");
 
-      if (!dateStr) return { date: new Date(), message: "" };
+      if (!dateStr) return { date: null, error: null };
 
       try {
         if (!/^\d{12}$/.test(dateStr)) throw new Error("Invalid format. Expected YYYYMMDDHHMM.");
@@ -79,27 +79,27 @@
         message.textContent = "Using local time " + localDate.toString() +
           " (" + estDate.toLocaleString("en-US", { timeZone: "America/New_York", timeZoneName: "short" }) + ")";
 
-        return { date: localDate, message: "" };
+        return { date: localDate, error: null };
       } catch (err) {
         return {
           date: new Date(),
-          message: "Error parsing date parameter '" + dateStr + "': " + err.message
+          error: "Error parsing date parameter '" + dateStr + "': " + err.message
         };
       }
     }
 
-    function renderCountdown(staticNow) {
+    function renderCountdown(now) {
       const endEST = new Date("2029-01-20T17:00:00Z");
       const startEST = new Date("2025-01-20T17:00:00Z");
       const totalMs = endEST - startEST;
-      const elapsedMs = staticNow.getTime() - startEST.getTime();
+      const elapsedMs = now.getTime() - startEST.getTime();
       const percentElapsed = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
 
-      let remaining = endEST.getTime() - staticNow.getTime();
+      let remaining = endEST.getTime() - now.getTime();
       if (remaining < 0) remaining = 0;
 
       const targetDate = new Date(endEST);
-      const nowDate = new Date(staticNow);
+      const nowDate = new Date(now);
 
       let years = targetDate.getUTCFullYear() - nowDate.getUTCFullYear();
       let months = targetDate.getUTCMonth() - nowDate.getUTCMonth();
@@ -133,10 +133,18 @@
     }
 
     const result = tryParseDateParam();
-    if (result.message) {
-      document.getElementById("message").textContent = result.message;
+    if (result.error) {
+      document.getElementById("message").textContent = result.error;
+      renderCountdown(result.date);
+    } else if (result.date) {
+      renderCountdown(result.date);
+    } else {
+      function liveUpdate() {
+        renderCountdown(new Date());
+      }
+      liveUpdate();
+      setInterval(liveUpdate, 1000);
     }
-    renderCountdown(result.date);
   </script>
 </body>
 </html>
