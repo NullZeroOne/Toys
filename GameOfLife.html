@@ -24,8 +24,8 @@
       overflow: hidden;
     }
     .controls {
-      width: 340px;
-      max-width: 44vw;
+      width: 360px;
+      max-width: 46vw;
       background: var(--panel-bg);
       border-right: 1px solid var(--panel-border);
       padding: 16px;
@@ -136,6 +136,10 @@
           <input id="chkTrends" type="checkbox" />
         </div>
         <div class="row">
+          <label for="chkAutoDie" title="If enabled and the history window is full, cells alive for the entire window will die and spawn the same number of random new cells.">AutoDie</label>
+          <input id="chkAutoDie" type="checkbox" />
+        </div>
+        <div class="row">
           <label for="inputHistoryCap" title="Number of board states to keep in history (undo/redo window).">History size</label>
           <input id="inputHistoryCap" type="number" min="1" max="500" step="1" value="10" />
         </div>
@@ -194,6 +198,7 @@
     const inputHistoryCap = document.getElementById('inputHistoryCap');
     const chkToroidal = document.getElementById('chkToroidal');
     const chkTrends = document.getElementById('chkTrends');
+    const chkAutoDie = document.getElementById('chkAutoDie');
 
     const statGeneration = document.getElementById('statGeneration');
     const statLive = document.getElementById('statLive');
@@ -313,7 +318,7 @@
       // Disable everything except Pause when running
       const allInputs = [
         btnPlay, btnStepForward, btnStepBack, btnFill, btnClear, btnResizeFit,
-        inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap, chkToroidal, chkTrends
+        inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap, chkToroidal, chkTrends, chkAutoDie
       ];
       for (const el of allInputs) el.disabled = isRunning;
 
@@ -374,24 +379,74 @@
       }
     }
 
-    function stepForwardCompute() {
-      // Compute nextGrid from grid, then swap
+    function applyAutoDieIfNeeded() {
+      if (!chkAutoDie.checked) return;
+      // We want a full window of size 'historyCap' consisting of previous (historyCap-1) snapshots plus current grid.
+      if (history.length < Math.max(1, historyCap - 1)) return; // not enough past states
+      // Build a list of indices that have been alive in ALL states of the window.
+      const windowLen = Math.min(historyCap - 1, history.length); // number of previous snapshots to include
+      const total = rows * cols;
+      // Precompute an array of references to the previous snapshots we're considering
+      const snaps = [];
+      for (let k = 0; k < windowLen; k++) {
+        snaps.push(history[cursor - k]); // cursor points to last snapshot before current step
+      }
+      const toKill = [];
+      // Identify persistent-alive cells across (windowLen previous) + current
+      for (let i = 0; i < total; i++) {
+        if (grid[i] !== 1) continue; // current must be alive
+        let allAlive = true;
+        for (let s = 0; s < snaps.length; s++) {
+          if (snaps[s].grid[i] !== 1) { allAlive = false; break; }
+        }
+        if (allAlive) toKill.push(i);
+      }
+      if (toKill.length === 0) return;
+
+      // Prepare a list of empty indices to choose from; we'll update as we place new cells
+      const empties = [];
+      for (let i = 0; i < total; i++) if (grid[i] === 0) empties.push(i);
+
+      function pickRandomEmptyAndActivate() {
+        if (empties.length === 0) return; // no space
+        const pos = (Math.random() * empties.length) | 0;
+        const j = empties[pos];
+        grid[j] = 1;
+        // remove from empties
+        empties[pos] = empties[empties.length - 1];
+        empties.pop();
+      }
+
+      // Apply: kill each qualifying cell, and spawn one random empty
+      for (const i of toKill) {
+        grid[i] = 0;
+        empties.push(i); // freed up; now empty and eligible
+        pickRandomEmptyAndActivate();
+      }
+    }
+
+    function stepForwardComputeAndMaybeAutoDie() {
+      // Compute nextGrid from grid, then swap (producing the new "current" grid)
       computeNextGeneration(nextGrid);
       const tmp = grid;
       grid = nextGrid;
       nextGrid = tmp;
       generation += 1;
+
+      // Apply AutoDie using current grid and previous snapshots
+      applyAutoDieIfNeeded();
+
       draw();
       updateStatus();
     }
 
     function stepForwardUser() {
-      // If there is redo, go forward in history
+      // If there is redo, go forward in history (do NOT recompute or re-apply AutoDie)
       if (canStepForwardRedo()) {
         loadHistoryAt(cursor + 1);
       } else {
-        // Compute a new generation and push to history
-        stepForwardCompute();
+        // Compute a new generation (+ optional AutoDie) and push to history
+        stepForwardComputeAndMaybeAutoDie();
         pushHistorySnapshot();
       }
     }
@@ -524,8 +579,8 @@
       if (!running) return;
       const t0 = performance.now();
 
-      // Each tick is exactly one generation
-      stepForwardCompute();
+      // Each tick is exactly one generation (+ optional AutoDie)
+      stepForwardComputeAndMaybeAutoDie();
       pushHistorySnapshot();
 
       const elapsed = performance.now() - t0;
@@ -673,6 +728,10 @@
 
     chkTrends.addEventListener('change', () => {
       draw(); // toggle between BW and Trends
+    });
+
+    chkAutoDie.addEventListener('change', () => {
+      // No immediate effect; applies on next computed generation
     });
 
     // Keep logical grid size stable on window resize (manual recompute via button)
