@@ -30,11 +30,12 @@
     .board-wrap{position:relative;flex:1;overflow:auto;background:#fff}
     canvas{display:block;image-rendering:pixelated;background:#fff}
     .disabled-field{opacity:.6;pointer-events:none}
-    .fill-buttons button{font-size:16px;padding:4px 8px}
+    .fill-buttons{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .fill-grid{display:grid;grid-template-columns:repeat(3,auto);gap:6px}
+    .fill-grid button{font-size:16px;padding:4px 8px}
     #btnFillColor{width:28px;height:28px;border-radius:6px;border:1px solid var(--panel-border);padding:0;overflow:hidden}
     #btnFillColor::-webkit-color-swatch-wrapper{padding:0}
     #btnFillColor::-webkit-color-swatch{border:none}
-    .legend{position:absolute;left:8px;bottom:8px;background:rgba(255,255,255,0.8);border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:11px;color:#111}
   </style>
 </head>
 <body>
@@ -53,7 +54,7 @@
       <div class="group">
         <div class="row inline">
           <label for="inputBlockSize">Block px</label>
-          <input id="inputBlockSize" type="number" min="1" step="1" value="3"/>
+          <input id="inputBlockSize" type="number" min="1" step="1" value="15"/>
           <span></span>
           <button id="btnResizeFit" title="Resize grid to fit available area with current block size">Resize</button>
         </div>
@@ -67,29 +68,30 @@
           <div class="row inline" id="birthRateRow"><label for="inputBirthRate" title="Number of cells to spawn per aged death (base value).">Birth rate</label><input id="inputBirthRate" type="number" min="0" step="1" value="2"/></div>
           <div class="checkbox-row"><label for="chkPopRebal" title="(Requires Aging) Adjust respawns based on Live% vs Fill% ± Threshold%.">PopRebal</label><input id="chkPopRebal" type="checkbox"/></div>
           <div class="row inline" id="thresholdRow"><label for="inputRebalThreshold" title="Deadzone for PopRebal (requires Aging).">Threshold %</label><input id="inputRebalThreshold" type="number" min="0" max="100" step="1" value="5"/></div>
-          <div class="checkbox-row"><label for="chkBWColor" title="When Rainbow is OFF, show stored per-cell colors instead of black.">Colorize B/W</label><input id="chkBWColor" type="checkbox"/></div>
         </div>
-        <div class="row inline"><label for="inputHistoryCap">History</label><input id="inputHistoryCap" type="number" min="1" max="500" step="1" value="10"/></div>
+        <div class="row inline"><label for="inputHistoryCap">History</label><input id="inputHistoryCap" type="number" min="1" max="500" step="1" value="20"/></div>
         <div class="checkbox-row"><label for="chkToroidal">Toroidal</label><input id="chkToroidal" type="checkbox" checked/></div>
       </div>
 
       <div class="group" aria-label="Fill & clear">
         <div class="row inline">
           <label for="inputFillPercent">Fill %</label>
-          <input id="inputFillPercent" type="number" min="0" max="100" step="1" value="30" />
-        </div>
-        <div class="row fill-buttons">
-          <span>Fill:</span>
-          <button id="btnFillNW" title="Fill top-left quarter">↖️</button>
-          <button id="btnFillUp" title="Fill top half">⬆️</button>
-          <button id="btnFillNE" title="Fill top-right quarter">↗️</button>
-          <button id="btnFillLeft" title="Fill left half">⬅️</button>
-          <button id="btnFillCenter" title="Fill entire board">⏺️</button>
-          <button id="btnFillRight" title="Fill right half">➡️</button>
-          <button id="btnFillSW" title="Fill bottom-left quarter">↙️</button>
-          <button id="btnFillDown" title="Fill bottom half">⬇️</button>
-          <button id="btnFillSE" title="Fill bottom-right quarter">↘️</button>
+          <input id="inputFillPercent" type="number" min="0" max="100" step="1" value="10" />
           <input id="btnFillColor" type="color" value="#007bff" title="Fill color (also used for manual drawing)"/>
+        </div>
+        <div class="fill-buttons">
+          <span>Fill:</span>
+          <div class="fill-grid">
+            <button id="btnFillNW" title="Fill top-left quarter">↖️</button>
+            <button id="btnFillUp" title="Fill top half">⬆️</button>
+            <button id="btnFillNE" title="Fill top-right quarter">↗️</button>
+            <button id="btnFillLeft" title="Fill left half">⬅️</button>
+            <button id="btnFillCenter" title="Fill entire board">⏺️</button>
+            <button id="btnFillRight" title="Fill right half">➡️</button>
+            <button id="btnFillSW" title="Fill bottom-left quarter">↙️</button>
+            <button id="btnFillDown" title="Fill bottom half">⬇️</button>
+            <button id="btnFillSE" title="Fill bottom-right quarter">↘️</button>
+          </div>
         </div>
         <div class="row tight"><button id="btnClear">Clear</button></div>
       </div>
@@ -141,7 +143,6 @@
     const chkTrends=document.getElementById('chkTrends');
     const chkAging=document.getElementById('chkAging');
     const chkPopRebal=document.getElementById('chkPopRebal');
-    const chkBWColor=document.getElementById('chkBWColor');
 
     const statGeneration=document.getElementById('statGeneration');
     const statLive=document.getElementById('statLive');
@@ -151,9 +152,9 @@
     const statFPS=document.getElementById('statFPS');
     const boardWrap=document.querySelector('.board-wrap');
 
-    let historyCap=10;
+    let historyCap=20;
     let rows=0,cols=0;
-    let blockSize=3;
+    let blockSize=15;
     let grid=new Uint8Array(0);
     let nextGrid=new Uint8Array(0);
     // Store per-cell color always
@@ -237,12 +238,10 @@
       for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const i=idx(r,c);const {sum,list}=neighborCountAndList(r,c);const alive=grid[i]===1;
         if(alive){
           nextGrid[i]=(sum===2||sum===3)?1:0;
-          // color persists in nextR/G/B (already copied)
         }else{
           if(sum===3){
             nextGrid[i]=1;
             if(chkRainbow.checked){
-              // average exactly the 3 neighbors (list length is 3 here)
               let ar=0,ag=0,ab=0;
               for(let k=0;k<3;k++){const j=list[k]; ar+=colR[j]; ag+=colG[j]; ab+=colB[j];}
               nextR[i]=Math.round(ar/3); nextG[i]=Math.round(ag/3); nextB[i]=Math.round(ab/3);
@@ -250,7 +249,7 @@
               const [fr,fg,fb]=getFillRGB(); nextR[i]=fr; nextG[i]=fg; nextB[i]=fb;
             }
           }else{
-            nextGrid[i]=0; // remains dead
+            nextGrid[i]=0;
           }
         }
       }}
@@ -397,12 +396,8 @@
       } else if(rainbowOn){
         for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const i=idx(r,c); if(grid[i]){ctx.fillStyle=`rgb(${colR[i]},${colG[i]},${colB[i]})`; ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}}
       } else {
-        if(chkBWColor.checked){
-          for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const i=idx(r,c); if(grid[i]){ctx.fillStyle=`rgb(${colR[i]},${colG[i]},${colB[i]})`; ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}}
-        }else{
-          ctx.fillStyle='#111';
-          for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){if(grid[idx(r,c)])ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}
-        }
+        // Always render stored per-cell colors when alive
+        for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const i=idx(r,c); if(grid[i]){ctx.fillStyle=`rgb(${colR[i]},${colG[i]},${colB[i]})`; ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}}
       }
       if(blockSize>=16){
         ctx.strokeStyle='#eee';ctx.lineWidth=1;
@@ -505,8 +500,8 @@
     }
 
     function init(){
-      blockSize=clamp(parseInt(inputBlockSize.value,10)||3,1,4096); inputBlockSize.value=String(blockSize);
-      historyCap=clamp(parseInt(inputHistoryCap.value,10)||10,1,500); inputHistoryCap.value=String(historyCap);
+      blockSize=clamp(parseInt(inputBlockSize.value,10)||15,1,4096); inputBlockSize.value=String(blockSize);
+      historyCap=clamp(parseInt(inputHistoryCap.value,10)||20,1,500); inputHistoryCap.value=String(historyCap);
       resizeGridToFit(false);
       const total=rows*cols;
       if(total>0){const picks=Math.round(0.30*total);const chosen=new Set();const [fr,fg,fb]=getFillRGB();while(chosen.size<picks)chosen.add((Math.random()*total)|0);for(const i of chosen){grid[i]=1; colR[i]=fr; colG[i]=fg; colB[i]=fb;}}
@@ -533,7 +528,7 @@
     inputBlockSize.addEventListener('change',()=>{const v=Math.floor(Number(inputBlockSize.value));if(!isFinite(v)||v<1){inputBlockSize.value=String(blockSize);return;}blockSize=v;resizeGridToFit(true);});
     inputHistoryCap.addEventListener('change',()=>{const v=Math.floor(Number(inputHistoryCap.value));if(!isFinite(v)||v<1){inputHistoryCap.value=String(historyCap);return;}historyCap=clamp(v,1,500);inputHistoryCap.value=String(historyCap);enforceHistoryCap();draw();});
     chkToroidal.addEventListener('change',()=>{updateStatus();draw();});
-    [chkRainbow,chkTrends,chkAging,chkPopRebal,chkBWColor].forEach(el=>el.addEventListener('change',()=>{syncEnabledStates();draw();}));
+    [chkRainbow,chkTrends,chkAging,chkPopRebal].forEach(el=>el.addEventListener('change',()=>{syncEnabledStates();draw();}));
     window.addEventListener('resize',()=>{});
     canvas.addEventListener('pointerdown',handlePointerDown);
 
