@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>House Seat Apportionment Explorer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    label, button { margin-top: 10px; display: inline-block; }
+    textarea { width: 100%; height: 300px; margin-top: 10px; overflow: auto; font-family: monospace; }
+    .summary-box { border: 1px solid #ccc; padding: 10px; margin-top: 15px; }
+    .summary-field { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h1>U.S. House Apportionment Explorer</h1>
+  <label for="houseSizeInput">Proposed House Size:</label>
+  <input type="number" id="houseSizeInput" value="435" min="51" />
+  <button onclick="useDefault()">Use Default (435)</button>
+  <button onclick="runAllocation()">Start Allocation</button>
+
+  <div class="summary-box">
+    <h3>Summary</h3>
+    <div class="summary-field"><strong>House Size:</strong> <span id="summaryHouseSize">—</span></div>
+    <div class="summary-field"><strong>Most Seats:</strong> <span id="summaryMostSeats">—</span></div>
+    <div class="summary-field"><strong>Fewest Seats:</strong> <span id="summaryFewestSeats">—</span></div>
+    <div class="summary-field"><strong>Most Constituents per Seat:</strong> <span id="summaryMostConstituents">—</span></div>
+    <div class="summary-field"><strong>Fewest Constituents per Seat:</strong> <span id="summaryFewestConstituents">—</span></div>
+  </div>
+
+  <h3>Allocation Trace</h3>
+  <textarea id="output" readonly></textarea>
+
+  <script>
+    const populations = {
+      "CA": 39538223, "TX": 29145505, "FL": 21538187, "NY": 20201249, "PA": 13002700,
+      "IL": 12812508, "OH": 11799448, "GA": 10711908, "NC": 10439388, "MI": 10077331,
+      "NJ": 9288994, "VA": 8631393, "WA": 7693612, "AZ": 7151502, "MA": 7029917,
+      "TN": 6910840, "IN": 6785528, "MO": 6154913, "MD": 6177224, "WI": 5893718,
+      "CO": 5773714, "MN": 5706494, "SC": 5118425, "AL": 5024279, "LA": 4657757,
+      "KY": 4505836, "OR": 4237256, "OK": 3959353, "CT": 3605944, "UT": 3271616,
+      "IA": 3190369, "NV": 3104614, "AR": 3011524, "MS": 2961279, "KS": 2937880,
+      "NM": 2117522, "NE": 1961504, "WV": 1793716, "ID": 1839106, "HI": 1455271,
+      "NH": 1377529, "ME": 1362359, "RI": 1097379, "MT": 1084225, "DE": 989948,
+      "SD": 886667, "ND": 779094, "AK": 733391, "VT": 643077, "WY": 576851
+    };
+
+    function useDefault() {
+      document.getElementById('houseSizeInput').value = 435;
+    }
+
+    function runAllocation() {
+      const houseSize = parseInt(document.getElementById('houseSizeInput').value);
+      const seats = {};
+      const output = [];
+      const priorities = [];
+
+      for (let state in populations) {
+        seats[state] = 1;
+        const P = populations[state];
+        const A2 = P / Math.sqrt(2);
+        priorities.push({state, value: A2, n: 1});
+      }
+
+      let remainingSeats = houseSize - Object.keys(populations).length;
+      while (remainingSeats-- > 0) {
+        priorities.sort((a, b) => b.value - a.value);
+        const next = priorities.shift();
+        seats[next.state]++;
+        const P = populations[next.state];
+        const n = seats[next.state];
+        const A = P / Math.sqrt(n * (n + 1));
+        output.push(`Seat ${houseSize - remainingSeats} → ${next.state} (A₍${next.n}₎ = ${(next.value/1000).toFixed(0)},000 k)`);
+        priorities.push({state: next.state, value: A, n: n});
+      }
+
+      document.getElementById("output").value = output.join("\n");
+
+      const seatEntries = Object.entries(seats);
+      const sortedBySeats = [...seatEntries].sort((a,b) => b[1] - a[1]);
+      const sortedByRatio = [...seatEntries].sort((a,b) => (populations[b[0]] / b[1]) - (populations[a[0]] / a[1]));
+
+      document.getElementById("summaryHouseSize").innerText = houseSize;
+      document.getElementById("summaryMostSeats").innerText = `${sortedBySeats[0][0]} (${sortedBySeats[0][1]})`;
+      document.getElementById("summaryFewestSeats").innerText = `${sortedBySeats[sortedBySeats.length-1][0]} (${sortedBySeats[sortedBySeats.length-1][1]})`;
+      document.getElementById("summaryMostConstituents").innerText = `${sortedByRatio[0][0]} (${Math.round(populations[sortedByRatio[0][0]] / sortedByRatio[0][1]).toLocaleString()})`;
+      document.getElementById("summaryFewestConstituents").innerText = `${sortedByRatio[sortedByRatio.length-1][0]} (${Math.round(populations[sortedByRatio[sortedByRatio.length-1][0]] / sortedByRatio[sortedByRatio.length-1][1]).toLocaleString()})`;
+    }
+  </script>
+</body>
+</html>
