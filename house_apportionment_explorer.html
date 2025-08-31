@@ -10,6 +10,10 @@
     textarea { width: 100%; height: 300px; margin-top: 10px; overflow: auto; font-family: monospace; }
     .summary-box { border: 1px solid #ccc; padding: 10px; margin-top: 15px; }
     .summary-field { margin-bottom: 8px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+    th { cursor: pointer; background-color: #f9f9f9; }
+    .scrollable-table { height: 300px; overflow-y: scroll; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -26,6 +30,20 @@
     <div class="summary-field"><strong>Fewest Seats:</strong> <span id="summaryFewestSeats">—</span></div>
     <div class="summary-field"><strong>Most Constituents per Seat:</strong> <span id="summaryMostConstituents">—</span></div>
     <div class="summary-field"><strong>Fewest Constituents per Seat:</strong> <span id="summaryFewestConstituents">—</span></div>
+  </div>
+
+  <h3>Allocation</h3>
+  <div class="scrollable-table">
+    <table id="allocationTable">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0)">State</th>
+          <th onclick="sortTable(1)">Seats</th>
+          <th onclick="sortTable(2)">Pop per Seat</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <h3>Allocation Trace</h3>
@@ -81,10 +99,33 @@
       const sortedByRatio = [...seatEntries].sort((a,b) => (populations[b[0]] / b[1]) - (populations[a[0]] / a[1]));
 
       document.getElementById("summaryHouseSize").innerText = houseSize;
-      document.getElementById("summaryMostSeats").innerText = `${sortedBySeats[0][0]} (${sortedBySeats[0][1]})`;
-      document.getElementById("summaryFewestSeats").innerText = `${sortedBySeats[sortedBySeats.length-1][0]} (${sortedBySeats[sortedBySeats.length-1][1]})`;
-      document.getElementById("summaryMostConstituents").innerText = `${sortedByRatio[0][0]} (${Math.round(populations[sortedByRatio[0][0]] / sortedByRatio[0][1]).toLocaleString()})`;
-      document.getElementById("summaryFewestConstituents").innerText = `${sortedByRatio[sortedByRatio.length-1][0]} (${Math.round(populations[sortedByRatio[sortedByRatio.length-1][0]] / sortedByRatio[sortedByRatio.length-1][1]).toLocaleString()})`;
+      document.getElementById("summaryMostSeats").innerText = `${sortedBySeats[0][0]} (${sortedBySeats[0][1]} seats, ${(populations[sortedBySeats[0][0]]/sortedBySeats[0][1] | 0).toLocaleString()} people/seat)`;
+      document.getElementById("summaryFewestSeats").innerText = `${sortedBySeats[sortedBySeats.length-1][0]} (${sortedBySeats[sortedBySeats.length-1][1]} seats, ${(populations[sortedBySeats[sortedBySeats.length-1][0]]/sortedBySeats[sortedBySeats.length-1][1] | 0).toLocaleString()} people/seat)`;
+      document.getElementById("summaryMostConstituents").innerText = `${sortedByRatio[0][0]} (${(populations[sortedByRatio[0][0]]/sortedByRatio[0][1] | 0).toLocaleString()} people/seat, ${sortedByRatio[0][1]} seats)`;
+      document.getElementById("summaryFewestConstituents").innerText = `${sortedByRatio[sortedByRatio.length-1][0]} (${(populations[sortedByRatio[sortedByRatio.length-1][0]]/sortedByRatio[sortedByRatio.length-1][1] | 0).toLocaleString()} people/seat, ${sortedByRatio[sortedByRatio.length-1][1]} seats)`;
+
+      const tbody = document.getElementById("allocationTable").getElementsByTagName("tbody")[0];
+      tbody.innerHTML = "";
+      Object.keys(seats).sort().forEach(state => {
+        const row = tbody.insertRow();
+        row.insertCell().innerText = state;
+        row.insertCell().innerText = seats[state];
+        row.insertCell().innerText = Math.round(populations[state] / seats[state]).toLocaleString();
+      });
+    }
+
+    function sortTable(colIndex) {
+      const table = document.getElementById("allocationTable");
+      const tbody = table.tBodies[0];
+      const rows = Array.from(tbody.rows);
+      const asc = !table.asc;
+      rows.sort((a, b) => {
+        const valA = a.cells[colIndex].innerText.replace(/,/g, '');
+        const valB = b.cells[colIndex].innerText.replace(/,/g, '');
+        return asc ? valA - valB : valB - valA;
+      });
+      rows.forEach(row => tbody.appendChild(row));
+      table.asc = asc;
     }
   </script>
 </body>
