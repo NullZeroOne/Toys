@@ -24,49 +24,52 @@
       overflow: hidden;
     }
     .controls {
-      width: 380px;
-      max-width: 48vw;
+      width: 320px;
+      max-width: 42vw;
       background: var(--panel-bg);
       border-right: 1px solid var(--panel-border);
-      padding: 16px;
+      padding: 12px;
       overflow-y: auto;
     }
     .controls h1 {
-      font-size: 18px;
-      margin: 0 0 12px 0;
+      font-size: 16px;
+      margin: 0 0 8px 0;
     }
     .group {
-      margin-bottom: 14px;
-      padding-bottom: 12px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 1px dashed var(--panel-border);
     }
     .row {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
-      margin: 6px 0;
+      margin: 4px 0;
       flex-wrap: wrap;
     }
-    label { font-size: 14px; }
+    .row.tight { gap: 4px; margin: 2px 0; }
+    label { font-size: 13px; }
     input[type="number"] {
-      width: 120px;
-      padding: 6px 8px;
+      width: 110px;
+      padding: 4px 6px;
       border: 1px solid var(--panel-border);
       border-radius: 6px;
-      font-size: 14px;
+      font-size: 13px;
     }
     input[type="checkbox"] {
       transform: translateY(1px);
       width: 16px; height: 16px;
     }
     button {
-      padding: 8px 12px;
+      padding: 6px 10px;
       border-radius: 8px;
       border: 1px solid var(--panel-border);
       background: white;
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
+      white-space: nowrap;
     }
+    button.icon { padding: 6px 8px; }
     button.primary {
       background: var(--accent);
       color: white;
@@ -79,8 +82,8 @@
     .status {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 6px 10px;
-      font-size: 13px;
+      gap: 4px 8px;
+      font-size: 12px;
     }
     .status div { white-space: nowrap; }
     .board-wrap {
@@ -111,64 +114,51 @@
     <aside class="controls" aria-label="Controls">
       <h1>Conway's Game of Life</h1>
 
+      <!-- Compact playback row -->
       <div class="group" aria-label="Playback controls">
-        <div class="row">
+        <div class="row tight">
           <button id="btnPlay" class="primary" title="Play">Play</button>
           <button id="btnPause" title="Pause">Pause</button>
-        </div>
-        <div class="row">
-          <button id="btnStepBack" title="Step back">⟵ Step Back</button>
-          <button id="btnStepForward" title="Step forward">Step Forward ⟶</button>
-        </div>
-        <div class="row">
-          <label for="inputMaxSpeed" title="Maximum moves per second while playing">Max speed (moves/s)</label>
+          <button id="btnStepBack" class="icon" title="Step back one generation">½ ⟵</button>
+          <button id="btnStepForward" class="icon" title="Step forward one generation">½ ⟶</button>
+          <label for="inputMaxSpeed" title="Maximum moves per second while playing">Max/s</label>
           <input id="inputMaxSpeed" type="number" step="0.1" min="0.1" value="60" />
         </div>
-        <div class="hint">During Play, all inputs are disabled except Pause.</div>
+      </div>
+
+      <!-- Block size & resize (moved up, default 4px) -->
+      <div class="group" aria-label="Block size">
+        <div class="row tight">
+          <label for="inputBlockSize">Block px</label>
+          <input id="inputBlockSize" type="number" min="1" step="1" value="4" />
+          <button id="btnResizeFit" title="Resize grid to fit available area with current block size">Resize</button>
+        </div>
       </div>
 
       <div class="group" aria-label="Grid & history settings">
-        <div class="row">
-          <label for="chkToroidal">Toroidal topology</label>
-          <input id="chkToroidal" type="checkbox" />
-        </div>
-        <div class="row">
-          <label for="chkTrends" title="Show trend of activity using a white→blue→teal→green→yellow→red gradient.">Trends</label>
+        <div class="row tight">
+          <label for="chkToroidal">Toroidal</label>
+          <input id="chkToroidal" type="checkbox" checked />
+          <label for="chkTrends" title="Show trend of activity using white→blue→teal→green→yellow→red.">Trends</label>
           <input id="chkTrends" type="checkbox" />
-        </div>
-        <div class="row">
-          <label for="chkAging" title="If enabled (with full history window), cells alive across the entire window will die and respawn outward.">Aging</label>
+          <label for="chkAging" title="Cells alive for the full window die and respawn outward.">Aging</label>
           <input id="chkAging" type="checkbox" />
-        </div>
-        <div class="row">
-          <label for="chkPopRebal" title="If enabled, modifies rules when live% deviates from Fill% by ≥ Threshold %, and keeps that mode until crossing Fill%.">PopRebal</label>
+          <label for="chkPopRebal" title="Aging-only enhancer: adjusts number of respawns based on population vs Fill±Threshold.">PopRebal</label>
           <input id="chkPopRebal" type="checkbox" />
         </div>
-        <div class="row subtle">
-          <span>When PopRebal is on:</span>
-          <label for="inputRebalThreshold" title="Deadzone around Fill % for entering a mode; exit happens on crossing Fill%.">Threshold %</label>
+        <div class="row tight">
+          <label for="inputRebalThreshold" title="Deadzone for PopRebal (with Aging): compare Live% to Fill% ± Threshold%.">Threshold %</label>
           <input id="inputRebalThreshold" type="number" min="0" max="100" step="1" value="5" />
-        </div>
-        <div class="row">
-          <label for="inputHistoryCap" title="Number of board states to keep in history (undo/redo window).">History size</label>
+          <label for="inputHistoryCap" title="History buffer size for undo/redo & trends.">History</label>
           <input id="inputHistoryCap" type="number" min="1" max="500" step="1" value="10" />
-        </div>
-        <div class="row">
-          <label for="inputBlockSize">Block size (px)</label>
-          <input id="inputBlockSize" type="number" min="1" step="1" value="10" />
-        </div>
-        <div class="row">
-          <button id="btnResizeFit" title="Resize grid to fit available area with current block size">Resize to Fit</button>
         </div>
       </div>
 
       <div class="group" aria-label="Fill & clear">
-        <div class="row">
+        <div class="row tight">
           <label for="inputFillPercent">Fill %</label>
           <input id="inputFillPercent" type="number" min="0" max="100" step="1" value="30" />
           <button id="btnFill">Fill</button>
-        </div>
-        <div class="row">
           <button id="btnClear">Clear</button>
         </div>
       </div>
@@ -178,10 +168,9 @@
           <div><strong>Generation:</strong> <span id="statGeneration">0</span></div>
           <div><strong>Live cells:</strong> <span id="statLive">0</span></div>
           <div><strong>Grid:</strong> <span id="statSize">0×0</span></div>
-          <div><strong>Topology:</strong> <span id="statTopology">Bounded</span></div>
+          <div><strong>Topology:</strong> <span id="statTopology">Toroidal</span></div>
           <div><strong>Live %:</strong> <span id="statLivePct">0%</span></div>
         </div>
-        <div class="hint">Tip: Click a cell to toggle. Drag continues the last action.</div>
       </div>
     </aside>
 
@@ -223,7 +212,7 @@
     let historyCap = 10; // user-configurable
 
     let rows = 0, cols = 0;
-    let blockSize = 10;
+    let blockSize = 4; // default 4px
     let grid = new Uint8Array(0);
     let nextGrid = new Uint8Array(0);
     let generation = 0;
@@ -232,9 +221,6 @@
     let history = []; // array of {grid: Uint8Array, generation: number}
     let cursor = -1;  // index in history of current state
     let dragState = null; // null | 0 | 1
-
-    // PopRebal persistent mode: 'none' | 'low' | 'high'
-    let popRebalMode = 'none';
 
     // ====== Utilities ======
     function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
@@ -273,7 +259,6 @@
       grid = newGrid;
       nextGrid = new Uint8Array(rows * cols);
       setCanvasSizeToGrid();
-      // Dimension change invalidates history snapshots
       resetHistory();
       draw();
       updateStatus();
@@ -282,7 +267,7 @@
     function resetHistory() {
       history = [];
       cursor = -1;
-      pushHistorySnapshot(); // snapshot current grid as starting point
+      pushHistorySnapshot();
       updateHistoryButtons();
     }
 
@@ -295,7 +280,6 @@
     }
 
     function pushHistorySnapshot(customGrid=null, customGeneration=null) {
-      // Truncate any redo states
       if (cursor < history.length - 1) {
         history = history.slice(0, cursor + 1);
       }
@@ -332,7 +316,6 @@
 
     function setControlsForRunning(isRunning) {
       running = isRunning;
-      // Disable everything except Pause when running
       const allInputs = [
         btnPlay, btnStepForward, btnStepBack, btnFill, btnClear, btnResizeFit,
         inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap,
@@ -375,7 +358,7 @@
             if (cc < 0) cc = cols - 1; else if (cc >= cols) cc = 0;
             sum += grid[idx(rr, cc)];
           } else {
-            if (rr < 0 || rr >= rows || cc < 0 || c >= cols) continue;
+            if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
             sum += grid[idx(rr, cc)];
           }
         }
@@ -383,56 +366,14 @@
       return sum;
     }
 
-    // Persistent PopRebal mode
-    function maybeEnterPopRebalMode() {
-      if (!chkPopRebal.checked) { popRebalMode = 'none'; return; }
-      if (popRebalMode !== 'none') return;
-      const total = rows * cols;
-      if (!total) return;
-      const live = countLive();
-      const curPct = (live / total) * 100;
-      const targetPct = clamp(parseFloat(inputFillPercent.value), 0, 100);
-      const threshold = clamp(parseFloat(inputRebalThreshold.value), 0, 100);
-      if (curPct < targetPct - threshold) popRebalMode = 'low';
-      else if (curPct > targetPct + threshold) popRebalMode = 'high';
-    }
-
-    function maybeExitPopRebalMode() {
-      if (!chkPopRebal.checked) { popRebalMode = 'none'; return; }
-      if (popRebalMode === 'none') return;
-      const total = rows * cols;
-      if (!total) return;
-      const live = countLive();
-      const curPct = (live / total) * 100;
-      const targetPct = clamp(parseFloat(inputFillPercent.value), 0, 100);
-      if (popRebalMode === 'low') {
-        if (curPct > targetPct) popRebalMode = 'none';
-      } else if (popRebalMode === 'high') {
-        if (curPct < targetPct) popRebalMode = 'none';
-      }
-    }
-
     function computeNextGeneration(out) {
-      maybeEnterPopRebalMode();
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const i = idx(r,c);
           const n = neighborCount(r,c);
           const alive = grid[i] === 1;
-
-          if (popRebalMode === 'low') {
-            // Too low: allow births at n==2 or 3; survival default (2 or 3)
-            out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0)
-                           : ((n === 2 || n === 3) ? 1 : 0);
-          } else if (popRebalMode === 'high') {
-            // Too high: survival only at n==3; births default (n==3)
-            out[i] = alive ? ((n === 3) ? 1 : 0)
-                           : ((n === 3) ? 1 : 0);
-          } else {
-            // Default Life
-            out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0)
-                           : ((n === 3) ? 1 : 0);
-          }
+          out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0)
+                         : ((n === 3) ? 1 : 0);
         }
       }
     }
@@ -475,13 +416,42 @@
       }
       return -1;
     }
+
+    function getLivePct() {
+      const total = rows * cols;
+      return total ? (countLive() / total) * 100 : 0;
+    }
+
+    function agingRespawnCount() {
+      // Default: 1 respawn per aged death
+      let respawns = 1;
+      // Only apply PopRebal logic when BOTH Aging and PopRebal are enabled
+      if (chkAging.checked && chkPopRebal.checked) {
+        const cur = getLivePct();
+        const target = clamp(parseFloat(inputFillPercent.value), 0, 100);
+        const thr = clamp(parseFloat(inputRebalThreshold.value), 0, 100);
+        if (cur < target - thr) respawns = 2;        // too low
+        else if (cur > target + thr) respawns = 0;   // too high
+        else respawns = 1;                            // normal
+      }
+      return respawns;
+    }
+
+    function syncPopRebalEnabledState() {
+      const enabled = chkAging.checked;
+      chkPopRebal.disabled = !enabled;
+      inputRebalThreshold.disabled = !enabled || !chkPopRebal.checked;
+    }
+
     function applyAgingIfNeeded() {
       if (!chkAging.checked) return;
       if (history.length < Math.max(1, historyCap - 1)) return;
+
       const windowLen = Math.min(historyCap - 1, history.length);
       const total = rows * cols;
       const snaps = [];
       for (let k = 0; k < windowLen; k++) snaps.push(history[cursor - k]);
+
       const toKill = [];
       for (let i = 0; i < total; i++) {
         if (grid[i] !== 1) continue;
@@ -492,12 +462,20 @@
         if (allAlive) toKill.push(i);
       }
       if (toKill.length === 0) return;
+
       const emptyFlag = new Array(total);
       for (let i = 0; i < total; i++) emptyFlag[i] = (grid[i] === 0);
+
+      const respawnsPerDeath = agingRespawnCount();
+
       for (const i of toKill) {
         if (grid[i] === 1) { grid[i] = 0; emptyFlag[i] = true; }
-        const j = pickEmptyAtIncreasingRadius(i, emptyFlag);
-        if (j >= 0) { grid[j] = 1; emptyFlag[j] = false; }
+
+        for (let k = 0; k < respawnsPerDeath; k++) {
+          const j = pickEmptyAtIncreasingRadius(i, emptyFlag);
+          if (j >= 0) { grid[j] = 1; emptyFlag[j] = false; }
+          else break;
+        }
       }
     }
 
@@ -507,8 +485,9 @@
       grid = nextGrid;
       nextGrid = tmp;
       generation += 1;
+
       applyAgingIfNeeded();
-      maybeExitPopRebalMode();
+
       draw();
       updateStatus();
     }
@@ -557,7 +536,7 @@
 
     function drawTrendsOrBW() {
       const wantTrends = chkTrends.checked;
-      const knownStates = cursor + 1; // snapshots in history considered
+      const knownStates = cursor + 1;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (!wantTrends || knownStates <= 1) {
@@ -634,7 +613,6 @@
         }
       }
       generation = 0;
-      popRebalMode = 'none';
       pushHistorySnapshot();
       draw();
       updateStatus();
@@ -644,7 +622,6 @@
       pushHistorySnapshot();
       grid.fill(0);
       generation = 0;
-      popRebalMode = 'none';
       pushHistorySnapshot();
       draw();
       updateStatus();
@@ -699,7 +676,6 @@
       if (r < 0 || r >= rows || c < 0 || c >= cols) return null;
       return { r, c, i: idx(r,c) };
     }
-
     function handlePointerDown(ev) {
       if (running) return;
       const cell = eventToCell(ev);
@@ -716,7 +692,6 @@
       window.addEventListener('pointerup', handlePointerUp, { once: true });
       canvas.setPointerCapture && canvas.setPointerCapture(ev.pointerId || 1);
     }
-
     function handlePointerMove(ev) {
       if (dragState === null) return;
       const cell = eventToCell(ev);
@@ -727,7 +702,6 @@
         updateStatus();
       }
     }
-
     function handlePointerUp(_ev) {
       dragState = null;
       window.removeEventListener('pointermove', handlePointerMove);
@@ -735,7 +709,7 @@
 
     // ====== Initialization ======
     function init() {
-      blockSize = clamp(parseInt(inputBlockSize.value, 10) || 10, 1, 4096);
+      blockSize = clamp(parseInt(inputBlockSize.value, 10) || 4, 1, 4096);
       inputBlockSize.value = String(blockSize);
 
       historyCap = clamp(parseInt(inputHistoryCap.value, 10) || 10, 1, 500);
@@ -745,6 +719,8 @@
       grid.fill(0);
       generation = 0;
       resetHistory();
+      statTopology.textContent = chkToroidal.checked ? 'Toroidal' : 'Bounded';
+      syncPopRebalEnabledState();
       draw();
       updateStatus();
     }
@@ -761,8 +737,7 @@
       if (running) return;
       const v = Math.floor(Number(inputBlockSize.value));
       if (!isFinite(v) || v < 1) { inputBlockSize.value = String(blockSize); return; }
-      blockSize = v;
-      resizeGridToFit(true);
+      blockSize = v; resizeGridToFit(true);
     });
     inputHistoryCap.addEventListener('change', () => {
       if (running) return;
@@ -775,8 +750,9 @@
     });
     chkToroidal.addEventListener('change', () => { updateStatus(); draw(); });
     chkTrends.addEventListener('change', () => { draw(); });
-    chkAging.addEventListener('change', () => {});
-    chkPopRebal.addEventListener('change', () => { if (!chkPopRebal.checked) popRebalMode = 'none'; });
+    chkAging.addEventListener('change', () => { syncPopRebalEnabledState(); });
+    chkPopRebal.addEventListener('change', () => { syncPopRebalEnabledState(); });
+    inputRebalThreshold.addEventListener('change', () => { /* no-op */ });
 
     window.addEventListener('resize', () => {});
     canvas.addEventListener('pointerdown', handlePointerDown);
