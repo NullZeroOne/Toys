@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analog Clock (Legacy + Metric)</title>
+  <style>
+    :root {
+      --bg: #000;
+      --face: #fff;
+      --border: #fff;
+      --font: #000;
+      --hour: #ff0000;   /* red */
+      --minute: #00ff00; /* green */
+      --second: #0000ff; /* blue */
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--face);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .wrap {
+      display: grid;
+      gap: 24px;
+      place-items: center;
+      min-height: 100vh;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .row {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      width: 100%;
+      max-width: 1200px;
+    }
+    .clock {
+      display: grid;
+      place-items: center;
+      padding: 12px;
+      border-radius: 12px;
+      background: #111;
+      box-shadow: 0 8px 24px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .title {
+      color: #ddd;
+      margin: 0 0 8px 0;
+      font-weight: 600;
+      letter-spacing: .3px;
+      text-align: center;
+    }
+    canvas {
+      display: block;
+      /* width & height are controlled via attributes to keep precise pixel math */
+    }
+    .note {
+      font-size: 12px;
+      color: #bbb;
+      text-align: center;
+      max-width: 900px;
+      line-height: 1.4;
+    }
+    code {
+      color: #d2f1ff;
+      background: #0b2330;
+      padding: .1em .35em;
+      border-radius: .3em;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row">
+      <div class="clock">
+        <h2 class="title">Legacy</h2>
+        <canvas id="clock-legacy" width="320" height="320"></canvas>
+      </div>
+      <div class="clock">
+        <h2 class="title" id="metric-title">Metric</h2>
+        <!-- Radius 320 -> canvas 640x640 to match the Python comment -->
+        <canvas id="clock-metric" width="640" height="640"></canvas>
+      </div>
+    </div>
+    <p class="note">
+      URL parameter <code>?metric=H:M:S</code> customizes the metric clock.
+      Example: <code>?metric=100:864:1</code>. Seconds ring and hand are omitted when <code>S = 1</code> (matching the Python program's behavior).
+    </p>
+  </div>
+
+  <script>
+    // ----- Helpers -----
+    function parseMetricParam() {
+      const params = new URLSearchParams(window.location.search);
+      const m = params.get('metric');
+      let H = 100, M = 864, S = 1; // defaults per Python main()
+      if (m) {
+        const parts = m.split(':').map(x => x.trim());
+        if (parts[0]) H = Math.max(1, parseInt(parts[0], 10) || 1);
+        if (parts[1]) M = Math.max(1, parseInt(parts[1], 10) || 1);
+        if (parts[2]) S = Math.max(1, parseInt(parts[2], 10) || 1);
+      }
+      return { H, M, S };
+    }
+
+    function pad(num, width) {
+      const s = String(num);
+      return s.length >= width ? s : '0'.repeat(width - s.length) + s;
+    }
+
+    class Time {
+      constructor({hoursPerDay=24, minutesPerHour=60, secondsPerMinute=60, secondsPerDay=86400} = {}) {
+        this.hours_per_day = hoursPerDay;
+        this.minutes_per_hour = minutesPerHour;
+        this.seconds_per_minute = secondsPerMinute;
+        this.seconds_per_day = secondsPerDay;
+        this.seconds_per_hour = this.minutes_per_hour * this.seconds_per_minute;
+        this.seconds_factor = this.seconds_per_day / 86400;
+        this.total_seconds = 0;
+        this.hour = 0; this.minute = 0; this.second = 0;
+      }
+      setSeconds(seconds) {
+        this.total_seconds = seconds * this.seconds_factor;
+        this.hour   = Math.floor(this.total_seconds / this.seconds_per_hour);
+        this.minute = Math.floor((this.total_seconds - this.seconds_per_hour * this.hour) / this.seconds_per_minute);
+        this.second = this.total_seconds - this.seconds_per_hour * this.hour - this.seconds_per_minute * this.minute;
+      }
+      maxHMS() {
+        const max_size = Math.max(this.hours_per_day, this.minutes_per_hour, this.seconds_per_minute);
+        const w = String(max_size).length;
+        return `${pad(this.hours_per_day, w)}:${pad(this.minutes_per_hour, w)}:${pad(this.seconds_per_minute, w)}`;
+      }
+      toString() {
+        const max_size = Math.max(this.hours_per_day - 1, this.minutes_per_hour - 1, this.seconds_per_minute - 1);
+        const w = String(max_size).length;
+        return `${pad(this.hour, w)}:${pad(this.minute, w)}:${pad(Math.floor(this.second), w)}`;
+      }
+    }
+
+    class AnalogClock {
+      constructor(canvas, title, time, radius, colors) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.title = title;
+        this.time = time;
+        this.radius = radius;
+        this.colors = Object.assign({
+          face: '#ffffff',
+          border: '#ffffff',
+          font: '#000000',
+          hour: '#ff0000',
+          minute: '#00ff00',
+          second: '#0000ff',
+          borderWidth: 3
+        }, colors || {});
+      }
+
+      draw() {
+        const ctx = this.ctx;
+        const r = this.radius;
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+
+        // Clear
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Face
+        this.drawCircle(centerX, centerY, r, this.colors.face, this.colors.border, this.colors.borderWidth);
+
+        // If minutes_per_hour outside 2..100, draw inner ring (minute color) per Python behavior
+        if (this.time.minutes_per_hour < 2 || this.time.minutes_per_hour > 100) {
+          this.drawCircle(centerX, centerY, r * 0.8, null, this.colors.minute, this.colors.borderWidth);
+        }
+
+        // Numbers
+        this.drawNumbers(this.time.hours_per_day, this.colors.hour, r * 0.9, centerX, centerY);
+        if (this.time.minutes_per_hour >= 2 && this.time.minutes_per_hour <= 100) {
+          this.drawNumbers(this.time.minutes_per_hour, this.colors.minute, r * 1.0, centerX, centerY);
+        }
+        if (this.time.seconds_per_minute >= 2 && this.time.seconds_per_minute <= 100) {
+          this.drawNumbers(this.time.seconds_per_minute, this.colors.second, r * 1.1, centerX, centerY);
+        }
+
+        // Hands
+        // Hours
+        {
+          const angle = (this.time.hour) * (2 * Math.PI / this.time.hours_per_day);
+          const x = centerX + r * 0.9 * 0.8 * Math.sin(angle);
+          const y = centerY - r * 0.9 * 0.8 * Math.cos(angle);
+          this.drawLine(centerX, centerY, x, y, 7, this.colors.hour);
+        }
+        // Minutes
+        {
+          const angle = (this.time.minute) * (2 * Math.PI / this.time.minutes_per_hour);
+          const x = centerX + r * 1.0 * 0.8 * Math.sin(angle);
+          const y = centerY - r * 1.0 * 0.8 * Math.cos(angle);
+          this.drawLine(centerX, centerY, x, y, 5, this.colors.minute);
+        }
+        // Seconds — only if seconds_per_minute != 1
+        if (this.time.seconds_per_minute !== 1) {
+          const angle = (Math.floor(this.time.second)) * (2 * Math.PI / this.time.seconds_per_minute);
+          const x = centerX + r * 1.1 * 0.8 * Math.sin(angle);
+          const y = centerY - r * 1.1 * 0.8 * Math.cos(angle);
+          this.drawLine(centerX, centerY, x, y, 3, this.colors.second);
+        }
+
+        // Center text block
+        ctx.font = '12px Calibri, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = this.colors.font;
+
+        const totalLine = `Total: ${this.time.maxHMS()} -> ${this.time.seconds_per_day}`;
+        const params = `F=${this.time.seconds_factor.toFixed(3)} -> S=${Math.floor(this.time.total_seconds)} -> %=${(this.time.total_seconds / this.time.seconds_per_day).toFixed(5)}`;
+
+        ctx.fillText(this.title, centerX, centerY - 20);
+        ctx.fillText(totalLine, centerX, centerY - 10);
+        ctx.fillText(this.time.toString(), centerX, centerY);
+        ctx.fillText(params, centerX, centerY + 10);
+      }
+
+      drawCircle(cx, cy, radius, fill, stroke, strokeWidth) {
+        const ctx = this.ctx;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius - 5, 0, Math.PI * 2); // minus padding 5 for visual parity
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.lineWidth = strokeWidth || 1;
+          ctx.strokeStyle = stroke;
+          ctx.stroke();
+        }
+      }
+
+      drawNumbers(total, color, radius, cx, cy) {
+        const ctx = this.ctx;
+        ctx.fillStyle = color;
+        ctx.font = '12px Calibri, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let i = 1; i <= total; i++) {
+          const angle = i * (2 * Math.PI / total);
+          const x = cx + radius * 0.8 * Math.sin(angle);
+          const y = cy - radius * 0.8 * Math.cos(angle);
+          ctx.fillText(String(i), x, y);
+        }
+      }
+
+      drawLine(x1, y1, x2, y2, width, color) {
+        const ctx = this.ctx;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineWidth = width;
+        ctx.strokeStyle = color;
+        ctx.stroke();
+      }
+    }
+
+    // ----- Instantiate -----
+    const metric = parseMetricParam();
+    const secondsPerDayMetric = metric.H * metric.M * metric.S;
+    const secondsFactorMetric = secondsPerDayMetric / 86400;
+    const metricTitle = document.getElementById('metric-title');
+    metricTitle.textContent = `Metric (${metric.H}:${metric.M}:${metric.S})`;
+
+    // Legacy clock (radius 160 => 320x320 canvas as set)
+    const legacyTime = new Time({ hoursPerDay: 24, minutesPerHour: 60, secondsPerMinute: 60, secondsPerDay: 24*60*60 });
+    const legacyClock = new AnalogClock(document.getElementById('clock-legacy'), 'Legacy', legacyTime, 160, {
+      face: getComputedStyle(document.documentElement).getPropertyValue('--face').trim(),
+      border: getComputedStyle(document.documentElement).getPropertyValue('--border').trim(),
+      font: getComputedStyle(document.documentElement).getPropertyValue('--font').trim(),
+      hour: getComputedStyle(document.documentElement).getPropertyValue('--hour').trim(),
+      minute: getComputedStyle(document.documentElement).getPropertyValue('--minute').trim(),
+      second: getComputedStyle(document.documentElement).getPropertyValue('--second').trim(),
+      borderWidth: 3
+    });
+
+    // Metric clock (radius 320 => 640x640 canvas as set)
+    const metricTime = new Time({
+      hoursPerDay: metric.H,
+      minutesPerHour: metric.M,
+      secondsPerMinute: metric.S,
+      secondsPerDay: secondsPerDayMetric
+    });
+    const metricClock = new AnalogClock(document.getElementById('clock-metric'), 'Metric', metricTime, 320, {
+      face: getComputedStyle(document.documentElement).getPropertyValue('--face').trim(),
+      border: getComputedStyle(document.documentElement).getPropertyValue('--border').trim(),
+      font: getComputedStyle(document.documentElement).getPropertyValue('--font').trim(),
+      hour: getComputedStyle(document.documentElement).getPropertyValue('--hour').trim(),
+      minute: getComputedStyle(document.documentElement).getPropertyValue('--minute').trim(),
+      second: getComputedStyle(document.documentElement).getPropertyValue('--second').trim(),
+      borderWidth: 3
+    });
+
+    function updateTimes() {
+      const now = new Date();
+      const totalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+      // Update each time model per Python logic
+      legacyTime.setSeconds(totalSeconds);
+      metricTime.setSeconds(totalSeconds);
+
+      legacyClock.draw();
+      metricClock.draw();
+    }
+
+    // Initial draw + tick
+    updateTimes();
+    // Update once per second at wall clock boundaries
+    setInterval(updateTimes, 1000);
+  </script>
+</body>
+</html>
