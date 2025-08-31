@@ -170,6 +170,7 @@
     let history=[];
     let cursor=-1;
     let dragState=null; // null | 0 | 1
+    let dirtySinceSnapshot=false; // track unsnapshotted edits
 
     const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
     const idx=(r,c)=>r*cols+c;
@@ -198,9 +199,10 @@
     function resetHistory(){history=[];cursor=-1;pushHistorySnapshot();updateHistoryButtons();}
     function enforceHistoryCap(){while(history.length>historyCap){history.shift();cursor=Math.max(0,cursor-1);}updateHistoryButtons();}
     function pushHistorySnapshot(){
-      if(cursor<history.length-1){history=history.slice(0,cursor+1);}
+      if(cursor<history.length-1){history=history.slice(0,cursor+1);} // drop redo
       history.push({grid:grid.slice(0), gen:generation, r:colR.slice(0), g:colG.slice(0), b:colB.slice(0)});
       enforceHistoryCap();cursor=history.length-1;updateHistoryButtons();
+      dirtySinceSnapshot=false;
     }
     const canStepBack=()=>cursor>0;
     const canStepForwardRedo=()=>cursor<history.length-1;
@@ -315,12 +317,10 @@
           if(j<0) break;
           grid[j]=1;
           if(chkRainbow.checked){
-            // color = average of immediate neighbors around spawn j; if none, inherit aged cell's color
             const avg = immediateNeighborAverageColorAt(j);
             if(avg){ colR[j]=avg[0]; colG[j]=avg[1]; colB[j]=avg[2]; }
             else { colR[j]=diedR; colG[j]=diedG; colB[j]=diedB; }
           }else{
-            // non-rainbow: use fill color
             colR[j]=fr0; colG[j]=fg0; colB[j]=fb0;
           }
           emptyFlag[j]=false;
@@ -340,8 +340,17 @@
       draw();
       updateStatus();
     }
-    function stepForwardUser(){if(canStepForwardRedo())loadHistoryAt(cursor+1);else{stepForwardComputeAndMutations();pushHistorySnapshot();}}
-    function stepBackUser(){if(!canStepBack())return;loadHistoryAt(cursor-1);}
+    function snapshotIfDirty(){ if(dirtySinceSnapshot){ pushHistorySnapshot(); } }
+    function stepForwardUser(){
+      if(!canStepForwardRedo()){
+        snapshotIfDirty(); // capture current manual edits before advancing
+        stepForwardComputeAndMutations();
+        pushHistorySnapshot();
+      } else {
+        loadHistoryAt(cursor+1);
+      }
+    }
+    function stepBackUser(){ if(!canStepBack()) return; loadHistoryAt(cursor-1); }
 
     const lerp=(a,b,t)=>a+(b-a)*t;
     const stops=[{p:0.00,c:[255,255,255]},{p:0.15,c:[207,232,255]},{p:0.30,c:[0,180,180]},{p:0.50,c:[0,192,0]},{p:0.75,c:[255,212,0]},{p:1.00,c:[255,0,0]}];
@@ -352,7 +361,6 @@
       const last=stops[stops.length-1].c; return `rgb(${last[0]},${last[1]},${last[2]})`;
     }
     function drawTrendsLegend(x,y,w,h){
-      // Draw gradient bar
       const grad = ctx.createLinearGradient(x, y, x+w, y);
       grad.addColorStop(0, 'rgb(255,255,255)');
       grad.addColorStop(0.15, 'rgb(207,232,255)');
@@ -363,7 +371,6 @@
       ctx.fillStyle = grad;
       ctx.fillRect(x,y,w,h);
       ctx.strokeStyle='#333'; ctx.strokeRect(x,y,w,h);
-      // ticks at 0,25,50,75,100
       ctx.fillStyle='#111'; ctx.font='10px system-ui, sans-serif';
       ctx.textBaseline='top';
       const ticks=[0,25,50,75,100];
@@ -385,7 +392,6 @@
       if(wantTrends&&knownStates>1){
         for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const i=idx(r,c);let aliveCount=0;for(let k=0;k<knownStates;k++){aliveCount+=history[cursor-k].grid[i];}
           ctx.fillStyle=colorFromFrac(aliveCount/knownStates); ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}
-        // legend (bottom-left)
         const pad=8, w=160, h=10;
         drawTrendsLegend(pad, canvas.height - pad - 24, w, h);
       } else if(rainbowOn){
@@ -426,6 +432,7 @@
       const picks=randomIndicesInRegion(toActivate,region);
       const [fr,fg,fb]=getFillRGB();
       for(const i of picks){grid[i]=1; colR[i]=fr; colG[i]=fg; colB[i]=fb;}
+      dirtySinceSnapshot=true;
     }
     function doFillDirectional(which){
       const pctRaw=parseFloat(inputFillPercent.value);
@@ -445,12 +452,13 @@
       };
       const region=regions[which];
       if(!region||region.r1<region.r0||region.c1<region.c0)return;
-      pushHistorySnapshot();
+      pushHistorySnapshot(); // snapshot BEFORE fill to allow immediate undo
       fillRegionPct(pct,region);
       draw();updateStatus();
     }
     function doClear(){
-      grid.fill(0);generation=0;history=[];cursor=-1;lastFPS=0;lastTickTime=null;pushHistorySnapshot();draw();updateStatus();
+      grid.fill(0);generation=0;history=[];cursor=-1;lastFPS=0;lastTickTime=null;dirtySinceSnapshot=false;
+      pushHistorySnapshot();draw();updateStatus();
     }
 
     function tick(time){
@@ -468,10 +476,23 @@
     function pausePlay(){if(!running)return;setControlsForRunning(false);if(rafId){cancelAnimationFrame(rafId);rafId=null;} /* keep lastFPS as-is */}
 
     function eventToCell(ev){const rect=canvas.getBoundingClientRect();const x=ev.clientX-rect.left;const y=ev.clientY-rect.top;const c=Math.floor(x/blockSize);const r=Math.floor(y/blockSize);if(r<0||r>=rows||c<0||c>=cols)return null;return {r,c,i:idx(r,c)};}
-    function handlePointerDown(ev){const cell=eventToCell(ev);if(!cell)return;const current=grid[cell.i];const target=current?0:1;dragState=target;if(grid[cell.i]!==target){grid[cell.i]=target; if(target===1){const [fr,fg,fb]=getFillRGB(); colR[cell.i]=fr; colG[cell.i]=fg; colB[cell.i]=fb;} draw();updateStatus();}
-      window.addEventListener('pointermove',handlePointerMove);window.addEventListener('pointerup',handlePointerUp,{once:true});canvas.setPointerCapture&&canvas.setPointerCapture(ev.pointerId||1);}
-    function handlePointerMove(ev){if(dragState===null)return;const cell=eventToCell(ev);if(!cell)return;if(grid[cell.i]!==dragState){grid[cell.i]=dragState; if(dragState===1){const [fr,fg,fb]=getFillRGB(); colR[cell.i]=fr; colG[cell.i]=fg; colB[cell.i]=fb;} draw();updateStatus();}}
-    function handlePointerUp(_ev){dragState=null;window.removeEventListener('pointermove',handlePointerMove);}
+    function handlePointerDown(ev){
+      const cell=eventToCell(ev);if(!cell)return;
+      const current=grid[cell.i];const target=current?0:1;dragState=target;
+      if(grid[cell.i]!==target){grid[cell.i]=target; if(target===1){const [fr,fg,fb]=getFillRGB(); colR[cell.i]=fr; colG[cell.i]=fg; colB[cell.i]=fb;} dirtySinceSnapshot=true; draw();updateStatus();}
+      window.addEventListener('pointermove',handlePointerMove);
+      window.addEventListener('pointerup',handlePointerUp,{once:true});
+      canvas.setPointerCapture&&canvas.setPointerCapture(ev.pointerId||1);
+    }
+    function handlePointerMove(ev){
+      if(dragState===null)return;
+      const cell=eventToCell(ev);if(!cell)return;
+      if(grid[cell.i]!==dragState){grid[cell.i]=dragState; if(dragState===1){const [fr,fg,fb]=getFillRGB(); colR[cell.i]=fr; colG[cell.i]=fg; colB[cell.i]=fb;} dirtySinceSnapshot=true; draw();updateStatus();}
+    }
+    function handlePointerUp(_ev){
+      dragState=null;window.removeEventListener('pointermove',handlePointerMove);
+      if(dirtySinceSnapshot){ pushHistorySnapshot(); } // snapshot drawn shape
+    }
 
     function syncEnabledStates(){
       const agingOn=chkAging.checked;
@@ -487,7 +508,6 @@
       blockSize=clamp(parseInt(inputBlockSize.value,10)||3,1,4096); inputBlockSize.value=String(blockSize);
       historyCap=clamp(parseInt(inputHistoryCap.value,10)||10,1,500); inputHistoryCap.value=String(historyCap);
       resizeGridToFit(false);
-      // Initial random 30% fill with selected color
       const total=rows*cols;
       if(total>0){const picks=Math.round(0.30*total);const chosen=new Set();const [fr,fg,fb]=getFillRGB();while(chosen.size<picks)chosen.add((Math.random()*total)|0);for(const i of chosen){grid[i]=1; colR[i]=fr; colG[i]=fg; colB[i]=fb;}}
       generation=0; lastFPS=0; lastTickTime=null; resetHistory(); pushHistorySnapshot();
@@ -499,7 +519,6 @@
     btnPause.addEventListener('click',pausePlay);
     btnStepForward.addEventListener('click',()=>{if(!running)stepForwardUser();});
     btnStepBack.addEventListener('click',()=>{if(!running)stepBackUser();});
-    // Fill allowed while running
     btnFillUp.addEventListener('click',()=>{doFillDirectional('up');});
     btnFillDown.addEventListener('click',()=>{doFillDirectional('down');});
     btnFillLeft.addEventListener('click',()=>{doFillDirectional('left');});
@@ -518,7 +537,6 @@
     window.addEventListener('resize',()=>{});
     canvas.addEventListener('pointerdown',handlePointerDown);
 
-    // Keyboard shortcuts: Space toggle, Left/Right step (ignored if input focused)
     window.addEventListener('keydown', (e)=>{
       const tag=(e.target && e.target.tagName)||'';
       const editable = (e.target && (e.target.isContentEditable || tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT'));
