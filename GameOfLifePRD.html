@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Requirements Document — Web Game of Life (with Trends, Aging, Rainbow)</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --card: #161a22;
+      --muted: #9aa4b2;
+      --text: #e5e7eb;
+      --accent: #6ea8fe;
+      --border: #232a36;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    a { color: var(--accent); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 80px; }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    h2 { font-size: 22px; margin: 28px 0 10px; }
+    h3 { font-size: 18px; margin: 18px 0 8px; color: #dbe3f4; }
+    p  { line-height: 1.6; color: #e8eaf0; }
+    li { line-height: 1.6; }
+    .muted { color: var(--muted); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 16px; }
+    .toc a { text-decoration: none; }
+    code, .kbd { background: #0e1420; border: 1px solid #1f2937; padding: 1px 6px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#0e1420; border:1px solid #223049; color:#a7c4ff; font-size:12px; }
+    ul.tight > li { margin: 6px 0; }
+    .note { border-left: 3px solid var(--accent); padding-left: 12px; }
+    .table { width:100%; border-collapse: collapse; }
+    .table th, .table td { border:1px solid var(--border); padding:8px 10px; text-align:left; }
+    .table th { background:#0e1420; }
+    .small { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Product Requirements Document (PRD)</h1>
+    <div class="muted">Web-based Conway’s Game of Life with Trends, Aging/PopRebal, and Rainbow Coloring</div>
+
+    <div class="card toc">
+      <strong>Table of Contents</strong>
+      <ul class="tight">
+        <li><a href="#overview">1. Overview & Goals</a></li>
+        <li><a href="#scope">2. Scope</a></li>
+        <li><a href="#ui">3. UI & Controls</a></li>
+        <li><a href="#defaults">4. Defaults</a></li>
+        <li><a href="#sim">5. Simulation Rules</a></li>
+        <li><a href="#history">6. History, Undo/Redo & Trends</a></li>
+        <li><a href="#aging">7. Aging & Population Rebalancing (PopRebal)</a></li>
+        <li><a href="#rainbow">8. Rainbow Mode</a></li>
+        <li><a href="#fill">9. Fill & Color Picker</a></li>
+        <li><a href="#resize">10. Grid Size & Resizing</a></li>
+        <li><a href="#editing">11. Manual Editing</a></li>
+        <li><a href="#status">12. Status Panel</a></li>
+        <li><a href="#data">13. Data Model & Performance</a></li>
+        <li><a href="#accessibility">14. Accessibility</a></li>
+        <li><a href="#acceptance">15. Acceptance Criteria & Test Cases</a></li>
+        <li><a href="#open">16. Open Questions</a></li>
+        <li><a href="#changelog">17. Changelog</a></li>
+      </ul>
+    </div>
+
+    <h2 id="overview">1. Overview & Goals</h2>
+    <p>
+      Build a performant, browser-native implementation of <em>Conway’s Game of Life</em> with an efficient grid renderer and
+      advanced visualization/mutation features:
+      <span class="badge">Trends</span> (activity heat coloring over history),
+      <span class="badge">Aging + PopRebal</span> (lifespan-based deaths with controlled respawns),
+      and <span class="badge">Rainbow</span> (color-mixing births). The app should run smoothly at <em>requestAnimationFrame</em> speed, be easy to use, and support
+      rich experimentation for patterns and population dynamics.
+    </p>
+
+    <h2 id="scope">2. Scope</h2>
+    <div class="card">
+      <h3>In Scope</h3>
+      <ul class="tight">
+        <li>Run in modern desktop & mobile browsers without external dependencies.</li>
+        <li>Interactive editing (click/drag) and randomized filling (whole, halves, and quarters).</li>
+        <li>Toroidal or bounded topology; user-configurable block (cell) size.</li>
+        <li>Undo/redo history with configurable buffer size and <span class="badge">Trends</span> visualization.</li>
+        <li><span class="badge">Aging</span> with <span class="badge">PopRebal</span> (lifespan-based respawns) and radius-expanding spawn placement.</li>
+        <li><span class="badge">Rainbow</span> mode with color-averaged births; can be used <strong>simultaneously</strong> with Aging (see §7, §8).</li>
+        <li>Keyboard shortcuts and on-canvas legend for Trends gradient.</li>
+      </ul>
+      <h3>Out of Scope</h3>
+      <ul class="tight">
+        <li>Multi-board support, save/load files, or network multiplayer.</li>
+        <li>Speed throttling (no “Max/s” control) — simulation uses rAF.</li>
+      </ul>
+    </div>
+
+    <h2 id="ui">3. UI & Controls</h2>
+    <div class="card">
+      <h3>Layout</h3>
+      <ul class="tight">
+        <li>Controls are on the <strong>left sidebar</strong>; canvas board on the right.</li>
+        <li>Playback controls on a <strong>single line</strong>: <span class="kbd">Play</span>, <span class="kbd">Pause</span>, <span class="kbd">⬅️</span> (step back), <span class="kbd">➡️</span> (step forward).</li>
+        <li><strong>Block size (px)</strong> input and <strong>Resize</strong> button appear directly below playback.</li>
+      </ul>
+
+      <h3>Controls</h3>
+      <div class="grid">
+        <div>
+          <ul class="tight">
+            <li><strong>Play</strong> → Start the simulation at rAF speed.</li>
+            <li><strong>Pause</strong> → Pause the simulation.</li>
+            <li><strong>⬅️ Step Back</strong> → Go to previous snapshot (disabled at oldest snapshot and while running).</li>
+            <li><strong>➡️ Step Forward</strong> → Go to next snapshot (disabled while running).</li>
+            <li><strong>Keyboard shortcuts</strong>: <span class="kbd">Space</span> toggles Play/Pause; <span class="kbd">←</span> steps back; <span class="kbd">→</span> steps forward.</li>
+          </ul>
+        </div>
+        <div>
+          <ul class="tight">
+            <li><strong>Toroidal</strong> (default ON) → wrap neighbors across edges. If OFF, edges are non-wrapping.</li>
+            <li><strong>Rainbow</strong> → color-mixing births. Can be enabled together with Aging (see §7, §8).</li>
+            <li><strong>Trends</strong> → activity-based coloring; available regardless of Rainbow/Aging state (purely visual; does not alter rules).</li>
+            <li><strong>Aging</strong> → lifespan-based death and respawns; can be used with Rainbow (see §7 for color rules).</li>
+            <li><strong>Option: Show stored colors in B/W rendering</strong> → when checked, the non-Rainbow render uses the per-cell stored colors instead of solid black.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Directional/Quarter Fills & Color</h3>
+      <ul class="tight">
+        <li><strong>Fill %</strong> (numeric; default 30). <em>Fill operates additively</em> (never clears).</li>
+        <li><strong>Fill buttons</strong>: “Fill:” followed by <span class="kbd">↖️ ↗️ ↙️ ↘️ ⬆️ ⬇️ ⬅️ ➡️ ⏺️</span></li>
+        <li><strong>Color picker</strong> (button) next to Fill; defaults to <span style="color:#007bff">blue</span>. Used by manual drawing/fill and by non-rainbow births & aging respawns.</li>
+        <li><strong>Clear</strong> → Clears the board <em>and the entire history</em> (resets generation, undo/redo).</li>
+      </ul>
+
+      <div class="note small">
+        <strong>During Play:</strong> Fill actions are <em>allowed</em>. Play is disabled; Pause is enabled. Step Back/Forward are disabled. Other inputs may remain enabled except where noted (e.g., Clear and Resize typically disabled while running to preserve continuity).
+      </div>
+    </div>
+
+    <h2 id="defaults">4. Defaults</h2>
+    <div class="card grid">
+      <div>
+        <ul class="tight">
+          <li><strong>Block size:</strong> 3 px.</li>
+          <li><strong>Toroidal:</strong> ON.</li>
+          <li><strong>Fill %:</strong> 30%.</li>
+          <li><strong>Initial load:</strong> randomly fill ~30% of the board.</li>
+        </ul>
+      </div>
+      <div>
+        <ul class="tight">
+          <li><strong>History size:</strong> 10 snapshots.</li>
+          <li><strong>Birth rate (Aging):</strong> 2.</li>
+          <li><strong>Threshold % (PopRebal):</strong> 5%.</li>
+          <li><strong>Fill color:</strong> #007bff (blue).</li>
+          <li><strong>FPS indicator:</strong> starts at 0; updates only while running.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="sim">5. Simulation Rules</h2>
+    <div class="card">
+      <h3>Conway’s Game of Life Core</h3>
+      <ul class="tight">
+        <li>Grid of binary cells (alive/dead). Neighbors = 8 surrounding cells (Moore neighborhood).</li>
+        <li><strong>Birth:</strong> a dead cell with exactly 3 live neighbors becomes alive.</li>
+        <li><strong>Survival:</strong> a live cell with 2 or 3 live neighbors stays alive; otherwise it dies.</li>
+        <li>Neighbor lookup respects <strong>Toroidal</strong> wrapping when enabled; otherwise edges are out-of-bounds.</li>
+      </ul>
+    </div>
+
+    <h2 id="history">6. History, Undo/Redo & Trends</h2>
+    <div class="card">
+      <h3>History</h3>
+      <ul class="tight">
+        <li>Store snapshots (up to <em>History</em> size) of grid <em>and</em> per-cell color every generation and before/after user-affecting operations.</li>
+        <li><strong>Step Back</strong> loads the previous snapshot. Disabled at earliest snapshot and while running.</li>
+        <li><strong>Step Forward</strong> redoes the next snapshot. Disabled while running.</li>
+        <li><strong>Clear</strong> clears the board and <em>erases the entire history</em>.</li>
+      </ul>
+
+      <h3>Trends Visualization</h3>
+      <ul class="tight">
+        <li>When enabled, cells are colored by the <em>fraction of known states</em> (current + saved snapshots) in which they were alive.</li>
+        <li>Color gradient: white (0%) → pale blue → teal → green → yellow → red (100%).</li>
+        <li>If there is no history (only the current state) show normal rendering (B/W or optional stored-color mode).</li>
+        <li><strong>On-canvas legend:</strong> a compact gradient bar with tick labels 0%, 25%, 50%, 75%, 100% anchored to a corner.</li>
+      </ul>
+    </div>
+
+    <h2 id="aging">7. Aging & Population Rebalancing (PopRebal)</h2>
+    <div class="card">
+      <p><strong>Availability:</strong> Aging can be enabled independently. It may also be used <strong>together</strong> with Rainbow (see color rules below).</p>
+      <h3>Aging</h3>
+      <ul class="tight">
+        <li>Let <em>History</em> be the user-specified buffer length. When the buffer is <strong>full</strong>, any cell that has been <strong>alive for the entire window</strong> (current + the previous <em>History-1</em> snapshots) <strong>dies of age</strong>.</li>
+        <li>On each aged death, <strong>Birth rate (BR)</strong> controls the number of respawns (see PopRebal below).</li>
+        <li><strong>Spawn placement algorithm:</strong> For each required respawn, attempt to activate one empty cell starting at radius 1 (adjacent cells). Pick a random candidate on that ring. If occupied/unavailable, increase radius (2, 3, …) until an empty cell is found. If none exist, skip that respawn.</li>
+      </ul>
+
+      <h3>PopRebal — Respawn Count Logic</h3>
+      <ul class="tight">
+        <li>Let <em>Fill %</em> be the user’s target, and <em>Threshold %</em> be the deadzone.</li>
+        <li>On each aged death, compute current live population percentage.</li>
+        <li>If <strong>Live % &lt; Fill % − Threshold %</strong> ⇒ spawn <strong>BR + 1</strong> cells.</li>
+        <li>If <strong>Fill % − Threshold % ≤ Live % ≤ Fill % + Threshold %</strong> ⇒ spawn <strong>BR</strong> cells.</li>
+        <li>If <strong>Live % &gt; Fill % + Threshold %</strong> ⇒ spawn <strong>max(0, BR − 1)</strong> cells.</li>
+        <li>Respawned cells’ <strong>colors</strong>:
+          <ul>
+            <li><strong>Rainbow OFF:</strong> use current <em>Fill color</em>.</li>
+            <li><strong>Rainbow ON:</strong> the respawned cell’s color is the <em>average of the immediate neighbors’ colors</em> (8-neighborhood). If there are no immediate neighbors, use the color of the <em>cell that died of age</em>.</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <h2 id="rainbow">8. Rainbow Mode</h2>
+    <div class="card">
+      <ul class="tight">
+        <li><strong>Rainbow</strong> mode can run alone or <strong>simultaneously with Aging</strong>.</li>
+        <li>The simulation follows standard Life rules for on/off changes.</li>
+        <li><strong>Birth color (3-neighbor births):</strong> when a dead cell is born (exactly 3 live neighbors), set its color to the <strong>RGB average</strong> of the <em>three</em> neighbors that caused the birth.</li>
+        <li><strong>Color storage:</strong> always store a color for every cell at all times, even when Rainbow is OFF.</li>
+        <li><strong>Non-Rainbow births:</strong> newly born cells take the current <strong>Fill color</strong>.</li>
+        <li><strong>Aging + Rainbow (together):</strong> see §7 for respawn color rules.</li>
+      </ul>
+    </div>
+
+    <h2 id="fill">9. Fill & Color Picker</h2>
+    <div class="card">
+      <ul class="tight">
+        <li><strong>Fill %</strong> specifies the percentage of cells in the chosen region to <em>activate</em> (does not deactivate cells).</li>
+        <li><strong>Fill actions while running:</strong> allowed.</li>
+        <li><strong>Regions:</strong> center (whole), halves (up/down/left/right), quarters (NW/NE/SW/SE).</li>
+        <li><strong>Color picker:</strong> button adjacent to Fill controls (default <span style="color:#007bff">blue</span>). Used for:
+          <ul>
+            <li>Manual drawing (turning a cell on sets its color).</li>
+            <li>Fill activation.</li>
+            <li>Non-rainbow births.</li>
+            <li>Aging respawns (see §7; Rainbow-on respawns average neighbors or inherit aged cell color).</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <h2 id="resize">10. Grid Size & Resizing</h2>
+    <div class="card">
+      <ul class="tight">
+        <li><strong>Block size</strong> (px) input (default 3) + <strong>Resize</strong> button.</li>
+        <li>Resize behavior uses the “<strong>keep intersection</strong>” rule: preserve the overlapping region of the old and new grid, zero-fill new areas.</li>
+        <li>Default grid dimensions fill all available space in the canvas area after reserving room for the UI.</li>
+      </ul>
+    </div>
+
+    <h2 id="editing">11. Manual Editing</h2>
+    <div class="card">
+      <ul class="tight">
+        <li>Pointer/touch editing on the canvas toggles cells <strong>on/off</strong> (click & drag supported).</li>
+        <li>When turning a cell <strong>on</strong>, set its color to the current <strong>Fill color</strong>.</li>
+        <li>Edits immediately update the board and can be undone via history controls.</li>
+      </ul>
+    </div>
+
+    <h2 id="status">12. Status Panel</h2>
+    <div class="card grid">
+      <div>
+        <ul class="tight">
+          <li><strong>Generation</strong></li>
+          <li><strong>Live cells</strong> (count)</li>
+          <li><strong>Live %</strong></li>
+        </ul>
+      </div>
+      <div>
+        <ul class="tight">
+          <li><strong>Grid size</strong> (cols × rows)</li>
+          <li><strong>Topology</strong> (Toroidal or Bounded)</li>
+          <li><strong>FPS</strong> (turns per second): initial value 0; updated once per generation <em>only while running</em>; stepping back/forward does not change this value; when paused, the last measured FPS remains displayed.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="data">13. Data Model & Performance</h2>
+    <div class="card">
+      <h3>Model</h3>
+      <ul class="tight">
+        <li><code>grid</code>: Uint8Array, 1 = alive, 0 = dead.</li>
+        <li><code>colR</code>, <code>colG</code>, <code>colB</code>: Uint8Arrays storing per-cell colors (0–255). Always present.</li>
+        <li><code>history</code> snapshots store both grid and color arrays + generation number.</li>
+        <li><strong>FPS</strong> value stored as a running metric: reset to 0 on load and clear; updated on each rAF tick.</li>
+      </ul>
+      <h3>Rendering</h3>
+      <ul class="tight">
+        <li>Canvas 2D, integer pixel rectangles for cells (image-rendering: pixelated).</li>
+        <li>Optional grid lines when block size ≥ 16 px.</li>
+        <li><strong>Non-Rainbow rendering options</strong>: black/white or “show stored colors”.</li>
+        <li><strong>Trends legend</strong> rendered on-canvas near a corner (gradient bar with tick marks and labels).</li>
+      </ul>
+      <h3>Performance</h3>
+      <ul class="tight">
+        <li>Game loop runs at <em>requestAnimationFrame</em> cadence.</li>
+        <li>Neighbor counts use branch-minimized loops; toroidal wrapping if enabled.</li>
+        <li>History snapshots trim to the configured size.</li>
+      </ul>
+    </div>
+
+    <h2 id="acceptance">15. Acceptance Criteria & Test Cases</h2>
+    <div class="card">
+      <h3>Functional Acceptance</h3>
+      <ul class="tight">
+        <li>Simulation follows Life rules with correct neighbor handling for toroidal and bounded modes.</li>
+        <li>History buffer size is user-configurable; Step Back disabled at first snapshot; Step Forward disabled while running and when no redo exists.</li>
+        <li>Clear resets board and clears history.</li>
+        <li>Trends displays correct activity fractions with on-canvas legend; falls back to normal rendering when no history.</li>
+        <li>Aging kills only cells alive for the full window when the window is full; respawn counts follow PopRebal rules; placement uses expanding rings.</li>
+        <li>Rainbow births mix neighbor colors exactly (average the 3 parents).</li>
+        <li><strong>Aging + Rainbow together:</strong> respawn color averages <em>immediate neighbors</em>; if none, inherits the aged cell’s color.</li>
+        <li>Fill % activates the specified portion of the selected region without deactivating cells; Fill works during play.</li>
+        <li>Manual edits toggle cells and assign Fill color on activation.</li>
+        <li><strong>Keyboard shortcuts:</strong> Space toggles play/pause; Left/Right step; do not interfere with text inputs when focused.</li>
+        <li><strong>FPS indicator:</strong> updates when running; unchanged by step back/forward; persists last value when paused.</li>
+        <li><strong>B/W color option:</strong> when toggled, non-Rainbow rendering uses the stored per-cell colors.</li>
+      </ul>
+      <h3>Edge Cases to Test</h3>
+      <ul class="tight">
+        <li>Very small grids (e.g., 1×1, 2×2) with toroidal ON/OFF.</li>
+        <li>No empty cells available during Aging respawn (should skip gracefully).</li>
+        <li>History size = 1 (minimal history).</li>
+        <li>Rapid toggling among Rainbow, Trends, and Aging; mutual non-interference and state preservation.</li>
+        <li>Repeated Fill clicks at low percentages; ensure additive behavior.</li>
+        <li>Resize with smaller/larger block sizes; confirm “keep intersection” content.</li>
+        <li>Keyboard shortcuts while a text field is focused: shortcuts should not trigger (standard input focus behavior).</li>
+      </ul>
+    </div>
+
+    <h2 id="accessibility">14. Accessibility</h2>
+    <div class="card">
+      <ul class="tight">
+        <li>Buttons and inputs have descriptive <code>title</code> attributes and visible labels.</li>
+        <li>Color information is visualization-only; gameplay is fully operable without color cues.</li>
+        <li>High-contrast UI theme; larger hit targets for controls.</li>
+        <li>Keyboard shortcuts present; do not capture keys when an input element has focus.</li>
+      </ul>
+    </div>
+
+    <h2 id="open">16. Open Questions</h2>
+    <div class="card">
+      <ul class="tight">
+        <li>None at this time (all prior open questions resolved as “YES”).</li>
+      </ul>
+    </div>
+
+    <h2 id="changelog">17. Changelog</h2>
+    <div class="card small">
+      <ul class="tight">
+        <li><strong>2025-08-31:</strong> Allowed Aging + Rainbow simultaneously with defined respawn color rule; added FPS indicator; added keyboard shortcuts; added on-canvas Trends legend; enabled optional “show stored colors” for non-Rainbow rendering.</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

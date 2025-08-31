@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Conway's Game of Life — Rainbow</title>
+  <title>Conway's Game of Life — Rainbow + Aging</title>
   <style>
     :root { --panel-bg:#f6f7f9; --panel-border:#e1e4e8; --accent:#2f6feb; --text:#111; }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
     .app{height:100vh;display:flex;overflow:hidden}
-    .controls{width:300px;max-width:42vw;background:var(--panel-bg);border-right:1px solid var(--panel-border);padding:12px;overflow-y:auto}
+    .controls{width:310px;max-width:44vw;background:var(--panel-bg);border-right:1px solid var(--panel-border);padding:12px;overflow-y:auto}
     .controls h1{font-size:16px;margin:0 0 8px 0}
     .group{margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed var(--panel-border)}
     .row{display:flex;gap:8px;align-items:center;margin:4px 0;flex-wrap:wrap}
@@ -34,6 +34,7 @@
     #btnFillColor{width:28px;height:28px;border-radius:6px;border:1px solid var(--panel-border);padding:0;overflow:hidden}
     #btnFillColor::-webkit-color-swatch-wrapper{padding:0}
     #btnFillColor::-webkit-color-swatch{border:none}
+    .legend{position:absolute;left:8px;bottom:8px;background:rgba(255,255,255,0.8);border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:11px;color:#111}
   </style>
 </head>
 <body>
@@ -65,8 +66,9 @@
           <div class="checkbox-row"><label for="chkAging" title="Cells alive across full history window die and respawn outward.">Aging</label><input id="chkAging" type="checkbox"/></div>
           <div class="row inline" id="birthRateRow"><label for="inputBirthRate" title="Number of cells to spawn per aged death (base value).">Birth rate</label><input id="inputBirthRate" type="number" min="0" step="1" value="2"/></div>
           <div class="checkbox-row"><label for="chkPopRebal" title="(Requires Aging) Adjust respawns based on Live% vs Fill% ± Threshold%.">PopRebal</label><input id="chkPopRebal" type="checkbox"/></div>
+          <div class="row inline" id="thresholdRow"><label for="inputRebalThreshold" title="Deadzone for PopRebal (requires Aging).">Threshold %</label><input id="inputRebalThreshold" type="number" min="0" max="100" step="1" value="5"/></div>
+          <div class="checkbox-row"><label for="chkBWColor" title="When Rainbow is OFF, show stored per-cell colors instead of black.">Colorize B/W</label><input id="chkBWColor" type="checkbox"/></div>
         </div>
-        <div class="row inline" id="thresholdRow"><label for="inputRebalThreshold" title="Deadzone for PopRebal (requires Aging).">Threshold %</label><input id="inputRebalThreshold" type="number" min="0" max="100" step="1" value="5"/></div>
         <div class="row inline"><label for="inputHistoryCap">History</label><input id="inputHistoryCap" type="number" min="1" max="500" step="1" value="10"/></div>
         <div class="checkbox-row"><label for="chkToroidal">Toroidal</label><input id="chkToroidal" type="checkbox" checked/></div>
       </div>
@@ -99,11 +101,14 @@
           <div><strong>Grid:</strong> <span id="statSize">0×0</span></div>
           <div><strong>Topology:</strong> <span id="statTopology">Toroidal</span></div>
           <div><strong>Live %:</strong> <span id="statLivePct">0%</span></div>
+          <div><strong>FPS:</strong> <span id="statFPS">0</span></div>
         </div>
       </div>
     </aside>
 
-    <main class="board-wrap"><canvas id="board" aria-label="Game board"></canvas></main>
+    <main class="board-wrap">
+      <canvas id="board" aria-label="Game board"></canvas>
+    </main>
   </div>
 
   <script>
@@ -136,12 +141,14 @@
     const chkTrends=document.getElementById('chkTrends');
     const chkAging=document.getElementById('chkAging');
     const chkPopRebal=document.getElementById('chkPopRebal');
+    const chkBWColor=document.getElementById('chkBWColor');
 
     const statGeneration=document.getElementById('statGeneration');
     const statLive=document.getElementById('statLive');
     const statSize=document.getElementById('statSize');
     const statTopology=document.getElementById('statTopology');
     const statLivePct=document.getElementById('statLivePct');
+    const statFPS=document.getElementById('statFPS');
     const boardWrap=document.querySelector('.board-wrap');
 
     let historyCap=10;
@@ -149,13 +156,16 @@
     let blockSize=3;
     let grid=new Uint8Array(0);
     let nextGrid=new Uint8Array(0);
-    // Always store per-cell color
+    // Store per-cell color always
     let colR=new Uint8Array(0), colG=new Uint8Array(0), colB=new Uint8Array(0);
     let nextR=new Uint8Array(0), nextG=new Uint8Array(0), nextB=new Uint8Array(0);
 
     let generation=0;
     let running=false;
     let rafId=null;
+    let lastTickTime=null; // for FPS
+    let lastFPS=0;
+
     // history holds snapshots of grid + colors
     let history=[];
     let cursor=-1;
@@ -207,6 +217,7 @@
       const live=countLive();statGeneration.textContent=String(generation);
       statSize.textContent=cols+'×'+rows;statTopology.textContent=chkToroidal.checked?'Toroidal':'Bounded';
       statLive.textContent=String(live);const total=rows*cols;const pct=total?(live/total)*100:0;statLivePct.textContent=fmtPct(pct);
+      statFPS.textContent=String(Math.round(lastFPS));
     }
     function countLive(){let n=0;for(let i=0;i<grid.length;i++)n+=grid[i];return n;}
     function getFillRGB(){const hex=colorPicker.value;const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);return [r,g,b];}
@@ -237,8 +248,7 @@
               const [fr,fg,fb]=getFillRGB(); nextR[i]=fr; nextG[i]=fg; nextB[i]=fb;
             }
           }else{
-            // remains dead, keep stored color as-is
-            nextGrid[i]=0;
+            nextGrid[i]=0; // remains dead
           }
         }
       }}
@@ -268,7 +278,7 @@
     function getLivePct(){const total=rows*cols;return total?(countLive()/total)*100:0;}
     function getBR(){const v=Math.floor(Number(inputBirthRate.value));return (!isFinite(v)||v<0)?0:v;}
     function agingRespawnCount(){
-      if(!chkAging.checked||chkRainbow.checked)return 0; // aging disabled in rainbow mode
+      if(!chkAging.checked)return 0;
       const BR=getBR();
       if(chkPopRebal.checked){
         const cur=getLivePct();const target=clamp(parseFloat(inputFillPercent.value),0,100);const thr=clamp(parseFloat(inputRebalThreshold.value),0,100);
@@ -277,8 +287,16 @@
         return BR;
       } else return BR;
     }
+    function immediateNeighborAverageColorAt(index){
+      const r=Math.floor(index/cols), c=index%cols;
+      const {sum,list}=neighborCountAndList(r,c);
+      if(sum===0) return null;
+      let ar=0,ag=0,ab=0;
+      for(let k=0;k<list.length;k++){const j=list[k]; ar+=colR[j]; ag+=colG[j]; ab+=colB[j];}
+      return [Math.round(ar/list.length), Math.round(ag/list.length), Math.round(ab/list.length)];
+    }
     function applyAgingIfNeeded(){
-      if(!chkAging.checked||chkRainbow.checked)return; // rainbow disables aging effects
+      if(!chkAging.checked)return;
       if(history.length<Math.max(1,historyCap-1))return;
       const windowLen=Math.min(historyCap-1,history.length);
       const snaps=[];for(let k=0;k<windowLen;k++)snaps.push(history[cursor-k]);
@@ -287,12 +305,25 @@
         for(let s=0;s<snaps.length;s++){if(snaps[s].grid[i]!==1){allAlive=false;break;}} if(allAlive)toKill.push(i);}
       if(toKill.length===0)return;
       const emptyFlag=new Array(total);for(let i=0;i<total;i++)emptyFlag[i]=(grid[i]===0);
-      const respawnsPerDeath=agingRespawnCount(); const [fr,fg,fb]=getFillRGB();
+      const respawnsPerDeath=agingRespawnCount();
+      const [fr0,fg0,fb0]=getFillRGB();
       for(const i of toKill){
-        if(grid[i]===1){grid[i]=0;emptyFlag[i]=true;}
+        const diedR=colR[i], diedG=colG[i], diedB=colB[i];
+        if(grid[i]===1){grid[i]=0; emptyFlag[i]=true;}
         for(let k=0;k<respawnsPerDeath;k++){
           const j=spawnOneAtIncreasingRadius(i,emptyFlag);
-          if(j>=0){grid[j]=1; colR[j]=fr; colG[j]=fg; colB[j]=fb; emptyFlag[j]=false;} else break;
+          if(j<0) break;
+          grid[j]=1;
+          if(chkRainbow.checked){
+            // color = average of immediate neighbors around spawn j; if none, inherit aged cell's color
+            const avg = immediateNeighborAverageColorAt(j);
+            if(avg){ colR[j]=avg[0]; colG[j]=avg[1]; colB[j]=avg[2]; }
+            else { colR[j]=diedR; colG[j]=diedG; colB[j]=diedB; }
+          }else{
+            // non-rainbow: use fill color
+            colR[j]=fr0; colG[j]=fg0; colB[j]=fb0;
+          }
+          emptyFlag[j]=false;
         }
       }
     }
@@ -306,7 +337,8 @@
       tmp=colB; colB=nextB; nextB=tmp;
       generation+=1;
       applyAgingIfNeeded();
-      draw();updateStatus();
+      draw();
+      updateStatus();
     }
     function stepForwardUser(){if(canStepForwardRedo())loadHistoryAt(cursor+1);else{stepForwardComputeAndMutations();pushHistorySnapshot();}}
     function stepBackUser(){if(!canStepBack())return;loadHistoryAt(cursor-1);}
@@ -319,19 +351,52 @@
         const r=Math.round(lerp(a.c[0],b.c[0],t)),g=Math.round(lerp(a.c[1],b.c[1],t)),bb=Math.round(lerp(a.c[2],b.c[2],t)); return `rgb(${r},${g},${bb})`;}}
       const last=stops[stops.length-1].c; return `rgb(${last[0]},${last[1]},${last[2]})`;
     }
+    function drawTrendsLegend(x,y,w,h){
+      // Draw gradient bar
+      const grad = ctx.createLinearGradient(x, y, x+w, y);
+      grad.addColorStop(0, 'rgb(255,255,255)');
+      grad.addColorStop(0.15, 'rgb(207,232,255)');
+      grad.addColorStop(0.30, 'rgb(0,180,180)');
+      grad.addColorStop(0.50, 'rgb(0,192,0)');
+      grad.addColorStop(0.75, 'rgb(255,212,0)');
+      grad.addColorStop(1, 'rgb(255,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x,y,w,h);
+      ctx.strokeStyle='#333'; ctx.strokeRect(x,y,w,h);
+      // ticks at 0,25,50,75,100
+      ctx.fillStyle='#111'; ctx.font='10px system-ui, sans-serif';
+      ctx.textBaseline='top';
+      const ticks=[0,25,50,75,100];
+      for(const t of ticks){
+        const tx=x+Math.round((t/100)*w);
+        ctx.beginPath(); ctx.moveTo(tx,y+h); ctx.lineTo(tx,y+h+4); ctx.stroke();
+        const text=String(t)+'%';
+        const tw=ctx.measureText(text).width;
+        ctx.fillText(text, Math.min(Math.max(tx - tw/2, x), x+w-tw), y+h+4);
+      }
+      ctx.fillStyle='#111'; ctx.font='11px system-ui, sans-serif';
+      ctx.fillText('Trends', x, y-12);
+    }
     function draw(){
       const rainbowOn=chkRainbow.checked;
-      const wantTrends=(chkTrends.checked&&!rainbowOn);
+      const wantTrends=chkTrends.checked;
       const knownStates=cursor+1;
       ctx.clearRect(0,0,canvas.width,canvas.height);
       if(wantTrends&&knownStates>1){
         for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const i=idx(r,c);let aliveCount=0;for(let k=0;k<knownStates;k++){aliveCount+=history[cursor-k].grid[i];}
           ctx.fillStyle=colorFromFrac(aliveCount/knownStates); ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}
+        // legend (bottom-left)
+        const pad=8, w=160, h=10;
+        drawTrendsLegend(pad, canvas.height - pad - 24, w, h);
       } else if(rainbowOn){
         for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const i=idx(r,c); if(grid[i]){ctx.fillStyle=`rgb(${colR[i]},${colG[i]},${colB[i]})`; ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}}
       } else {
-        ctx.fillStyle='#111';
-        for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){if(grid[idx(r,c)])ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}
+        if(chkBWColor.checked){
+          for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){const i=idx(r,c); if(grid[i]){ctx.fillStyle=`rgb(${colR[i]},${colG[i]},${colB[i]})`; ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}}
+        }else{
+          ctx.fillStyle='#111';
+          for(let r=0;r<rows;r++){for(let c=0;c<cols;c++){if(grid[idx(r,c)])ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize);}}
+        }
       }
       if(blockSize>=16){
         ctx.strokeStyle='#eee';ctx.lineWidth=1;
@@ -385,12 +450,22 @@
       draw();updateStatus();
     }
     function doClear(){
-      grid.fill(0);generation=0;history=[];cursor=-1;pushHistorySnapshot();draw();updateStatus();
+      grid.fill(0);generation=0;history=[];cursor=-1;lastFPS=0;lastTickTime=null;pushHistorySnapshot();draw();updateStatus();
     }
 
-    function tick(){if(!running)return;stepForwardComputeAndMutations();pushHistorySnapshot();rafId=requestAnimationFrame(tick);}
+    function tick(time){
+      if(!running)return;
+      if(lastTickTime!=null){
+        const dt=time-lastTickTime;
+        if(dt>0) lastFPS = 1000/dt;
+      }
+      lastTickTime=time;
+      stepForwardComputeAndMutations();
+      pushHistorySnapshot();
+      rafId=requestAnimationFrame(tick);
+    }
     function startPlay(){if(running)return;if(rafId)cancelAnimationFrame(rafId);setControlsForRunning(true);rafId=requestAnimationFrame(tick);}
-    function pausePlay(){if(!running)return;setControlsForRunning(false);if(rafId){cancelAnimationFrame(rafId);rafId=null;}}
+    function pausePlay(){if(!running)return;setControlsForRunning(false);if(rafId){cancelAnimationFrame(rafId);rafId=null;} /* keep lastFPS as-is */}
 
     function eventToCell(ev){const rect=canvas.getBoundingClientRect();const x=ev.clientX-rect.left;const y=ev.clientY-rect.top;const c=Math.floor(x/blockSize);const r=Math.floor(y/blockSize);if(r<0||r>=rows||c<0||c>=cols)return null;return {r,c,i:idx(r,c)};}
     function handlePointerDown(ev){const cell=eventToCell(ev);if(!cell)return;const current=grid[cell.i];const target=current?0:1;dragState=target;if(grid[cell.i]!==target){grid[cell.i]=target; if(target===1){const [fr,fg,fb]=getFillRGB(); colR[cell.i]=fr; colG[cell.i]=fg; colB[cell.i]=fb;} draw();updateStatus();}
@@ -398,54 +473,26 @@
     function handlePointerMove(ev){if(dragState===null)return;const cell=eventToCell(ev);if(!cell)return;if(grid[cell.i]!==dragState){grid[cell.i]=dragState; if(dragState===1){const [fr,fg,fb]=getFillRGB(); colR[cell.i]=fr; colG[cell.i]=fg; colB[cell.i]=fb;} draw();updateStatus();}}
     function handlePointerUp(_ev){dragState=null;window.removeEventListener('pointermove',handlePointerMove);}
 
-    function syncModeExclusions(){
-      const rainbow=chkRainbow.checked;
-      // Grey out Trends & Aging groups if Rainbow on
-      const trendRow=chkTrends.closest('.checkbox-row');
-      const agingRow=chkAging.closest('.checkbox-row');
-      const birthRateRow=document.getElementById('birthRateRow');
-      const thresholdRow=document.getElementById('thresholdRow');
-      const popRow=chkPopRebal.closest('.checkbox-row');
-
-      if(rainbow){
-        chkTrends.checked=false;
-        chkAging.checked=false;
-        chkPopRebal.checked=false;
-        trendRow.classList.add('disabled-field');
-        agingRow.classList.add('disabled-field');
-        birthRateRow.classList.add('disabled-field');
-        thresholdRow.classList.add('disabled-field');
-        popRow.classList.add('disabled-field');
-      }else{
-        trendRow.classList.remove('disabled-field');
-        agingRow.classList.remove('disabled-field');
-        // Enable/disable BR/Threshold based on Aging+PopRebal
-        inputBirthRate.disabled=!chkAging.checked;
-        birthRateRow.classList.toggle('disabled-field',!chkAging.checked);
-        const popOn=chkAging.checked&&chkPopRebal.checked;
-        inputRebalThreshold.disabled=!popOn;
-        thresholdRow.classList.toggle('disabled-field',!popOn);
-        popRow.classList.toggle('disabled-field',!chkAging.checked);
-      }
-
-      // If Trends or Aging enabled, lock out Rainbow control
-      const lockRainbow = (chkTrends.checked || chkAging.checked);
-      chkRainbow.disabled = lockRainbow;
-      chkRainbow.closest('.checkbox-row').classList.toggle('disabled-field', lockRainbow);
+    function syncEnabledStates(){
+      const agingOn=chkAging.checked;
+      inputBirthRate.disabled=!agingOn;
+      document.getElementById('birthRateRow').classList.toggle('disabled-field',!agingOn);
+      const popOn=agingOn&&chkPopRebal.checked;
+      inputRebalThreshold.disabled=!popOn;
+      document.getElementById('thresholdRow').classList.toggle('disabled-field',!popOn);
+      chkPopRebal.closest('.checkbox-row').classList.toggle('disabled-field',!agingOn);
     }
 
     function init(){
       blockSize=clamp(parseInt(inputBlockSize.value,10)||3,1,4096); inputBlockSize.value=String(blockSize);
       historyCap=clamp(parseInt(inputHistoryCap.value,10)||10,1,500); inputHistoryCap.value=String(historyCap);
-      // allocate arrays
-      rows=1; cols=1; // temporary to call resize
       resizeGridToFit(false);
-      // Initial random 30% fill with color
+      // Initial random 30% fill with selected color
       const total=rows*cols;
       if(total>0){const picks=Math.round(0.30*total);const chosen=new Set();const [fr,fg,fb]=getFillRGB();while(chosen.size<picks)chosen.add((Math.random()*total)|0);for(const i of chosen){grid[i]=1; colR[i]=fr; colG[i]=fg; colB[i]=fb;}}
-      generation=0; resetHistory(); pushHistorySnapshot();
+      generation=0; lastFPS=0; lastTickTime=null; resetHistory(); pushHistorySnapshot();
       document.getElementById('statTopology').textContent=chkToroidal.checked?'Toroidal':'Bounded';
-      syncModeExclusions(); draw(); updateStatus();
+      syncEnabledStates(); draw(); updateStatus();
     }
 
     btnPlay.addEventListener('click',startPlay);
@@ -467,12 +514,19 @@
     inputBlockSize.addEventListener('change',()=>{const v=Math.floor(Number(inputBlockSize.value));if(!isFinite(v)||v<1){inputBlockSize.value=String(blockSize);return;}blockSize=v;resizeGridToFit(true);});
     inputHistoryCap.addEventListener('change',()=>{const v=Math.floor(Number(inputHistoryCap.value));if(!isFinite(v)||v<1){inputHistoryCap.value=String(historyCap);return;}historyCap=clamp(v,1,500);inputHistoryCap.value=String(historyCap);enforceHistoryCap();draw();});
     chkToroidal.addEventListener('change',()=>{updateStatus();draw();});
-    chkRainbow.addEventListener('change',()=>{syncModeExclusions();draw();});
-    chkTrends.addEventListener('change',()=>{syncModeExclusions();draw();});
-    chkAging.addEventListener('change',()=>{syncModeExclusions();});
-    chkPopRebal.addEventListener('change',()=>{syncModeExclusions();});
+    [chkRainbow,chkTrends,chkAging,chkPopRebal,chkBWColor].forEach(el=>el.addEventListener('change',()=>{syncEnabledStates();draw();}));
     window.addEventListener('resize',()=>{});
     canvas.addEventListener('pointerdown',handlePointerDown);
+
+    // Keyboard shortcuts: Space toggle, Left/Right step (ignored if input focused)
+    window.addEventListener('keydown', (e)=>{
+      const tag=(e.target && e.target.tagName)||'';
+      const editable = (e.target && (e.target.isContentEditable || tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT'));
+      if(editable) return;
+      if(e.code==='Space'){ e.preventDefault(); running?pausePlay():startPlay(); }
+      else if(e.code==='ArrowLeft'){ e.preventDefault(); if(!running) stepBackUser(); }
+      else if(e.code==='ArrowRight'){ e.preventDefault(); if(!running) stepForwardUser(); }
+    });
 
     init();
   })();
