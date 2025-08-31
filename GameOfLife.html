@@ -133,7 +133,7 @@
           <input id="chkToroidal" type="checkbox" />
         </div>
         <div class="row">
-          <label for="chkTrends" title="Show trend of activity using a blue→red gradient from low to high frequency.">Trends</label>
+          <label for="chkTrends" title="Show trend of activity using a white→blue→teal→green→yellow→red gradient.">Trends</label>
           <input id="chkTrends" type="checkbox" />
         </div>
         <div class="row">
@@ -295,6 +295,7 @@
     }
 
     function pushHistorySnapshot(customGrid=null, customGeneration=null) {
+      // Truncate any redo states
       if (cursor < history.length - 1) {
         history = history.slice(0, cursor + 1);
       }
@@ -331,6 +332,7 @@
 
     function setControlsForRunning(isRunning) {
       running = isRunning;
+      // Disable everything except Pause when running
       const allInputs = [
         btnPlay, btnStepForward, btnStepBack, btnFill, btnClear, btnResizeFit,
         inputFillPercent, inputBlockSize, inputMaxSpeed, inputHistoryCap,
@@ -373,7 +375,7 @@
             if (cc < 0) cc = cols - 1; else if (cc >= cols) cc = 0;
             sum += grid[idx(rr, cc)];
           } else {
-            if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+            if (rr < 0 || rr >= rows || cc < 0 || c >= cols) continue;
             sum += grid[idx(rr, cc)];
           }
         }
@@ -419,12 +421,15 @@
           const alive = grid[i] === 1;
 
           if (popRebalMode === 'low') {
+            // Too low: allow births at n==2 or 3; survival default (2 or 3)
             out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0)
                            : ((n === 2 || n === 3) ? 1 : 0);
           } else if (popRebalMode === 'high') {
+            // Too high: survival only at n==3; births default (n==3)
             out[i] = alive ? ((n === 3) ? 1 : 0)
                            : ((n === 3) ? 1 : 0);
           } else {
+            // Default Life
             out[i] = alive ? ((n === 2 || n === 3) ? 1 : 0)
                            : ((n === 3) ? 1 : 0);
           }
@@ -443,9 +448,7 @@
         return { r, c, out: false };
       }
     }
-
     function indexAt(r, c) { return r * cols + c; }
-
     function pickEmptyAtIncreasingRadius(centerIndex, emptyFlagArr) {
       const cr = Math.floor(centerIndex / cols);
       const cc = centerIndex % cols;
@@ -453,7 +456,6 @@
       let anyEmpty = false;
       for (let i = 0; i < total; i++) { if (emptyFlagArr[i]) { anyEmpty = true; break; } }
       if (!anyEmpty) return -1;
-
       for (let radius = 1; radius <= Math.max(rows, cols); radius++) {
         const candidates = [];
         for (let dr = -radius; dr <= radius; dr++) {
@@ -473,16 +475,13 @@
       }
       return -1;
     }
-
     function applyAgingIfNeeded() {
       if (!chkAging.checked) return;
       if (history.length < Math.max(1, historyCap - 1)) return;
-
       const windowLen = Math.min(historyCap - 1, history.length);
       const total = rows * cols;
       const snaps = [];
       for (let k = 0; k < windowLen; k++) snaps.push(history[cursor - k]);
-
       const toKill = [];
       for (let i = 0; i < total; i++) {
         if (grid[i] !== 1) continue;
@@ -493,10 +492,8 @@
         if (allAlive) toKill.push(i);
       }
       if (toKill.length === 0) return;
-
       const emptyFlag = new Array(total);
       for (let i = 0; i < total; i++) emptyFlag[i] = (grid[i] === 0);
-
       for (const i of toKill) {
         if (grid[i] === 1) { grid[i] = 0; emptyFlag[i] = true; }
         const j = pickEmptyAtIncreasingRadius(i, emptyFlag);
@@ -510,10 +507,8 @@
       grid = nextGrid;
       nextGrid = tmp;
       generation += 1;
-
       applyAgingIfNeeded();
       maybeExitPopRebalMode();
-
       draw();
       updateStatus();
     }
@@ -534,18 +529,35 @@
 
     // ====== Rendering ======
     function lerp(a, b, t) { return a + (b - a) * t; }
-    // Pale blue (#cfe8ff) -> bright red (#ff0000)
+    // Multi-stop gradient: 0→1 maps to White -> Pale Blue -> Teal -> Green -> Yellow -> Red
+    const stops = [
+      { p: 0.00, c: [255,255,255] }, // white (never active)
+      { p: 0.15, c: [207,232,255] }, // pale blue
+      { p: 0.30, c: [  0,180,180] }, // teal
+      { p: 0.50, c: [  0,192,  0] }, // green
+      { p: 0.75, c: [255,212,  0] }, // yellow
+      { p: 1.00, c: [255,  0,  0] }, // red (always active)
+    ];
     function colorFromFrac(frac) {
-      const f = Math.max(0, Math.min(1, frac));
-      const r = Math.round(lerp(207, 255, f));
-      const g = Math.round(lerp(232,   0, f));
-      const b = Math.round(lerp(255,   0, f));
-      return `rgb(${r},${g},${b})`;
+      let f = Math.max(0, Math.min(1, frac));
+      if (f === 0) return 'rgb(255,255,255)';
+      for (let i = 0; i < stops.length - 1; i++) {
+        const a = stops[i], b = stops[i+1];
+        if (f >= a.p && f <= b.p) {
+          const t = (f - a.p) / (b.p - a.p);
+          const r = Math.round(lerp(a.c[0], b.c[0], t));
+          const g = Math.round(lerp(a.c[1], b.c[1], t));
+          const bb = Math.round(lerp(a.c[2], b.c[2], t));
+          return `rgb(${r},${g},${bb})`;
+        }
+      }
+      const last = stops[stops.length - 1].c;
+      return `rgb(${last[0]},${last[1]},${last[2]})`;
     }
 
     function drawTrendsOrBW() {
       const wantTrends = chkTrends.checked;
-      const knownStates = cursor + 1;
+      const knownStates = cursor + 1; // snapshots in history considered
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (!wantTrends || knownStates <= 1) {
@@ -742,11 +754,9 @@
     btnPause.addEventListener('click', pausePlay);
     btnStepForward.addEventListener('click', () => { if (!running) stepForwardUser(); });
     btnStepBack.addEventListener('click', () => { if (!running) stepBackUser(); });
-
     btnFill.addEventListener('click', () => { if (!running) { dropRedoIfAny(); doFill(); } });
     btnClear.addEventListener('click', () => { if (!running) { dropRedoIfAny(); doClear(); } });
     btnResizeFit.addEventListener('click', () => { if (!running) resizeGridToFit(true); });
-
     inputBlockSize.addEventListener('change', () => {
       if (running) return;
       const v = Math.floor(Number(inputBlockSize.value));
@@ -754,7 +764,6 @@
       blockSize = v;
       resizeGridToFit(true);
     });
-
     inputHistoryCap.addEventListener('change', () => {
       if (running) return;
       const v = Math.floor(Number(inputHistoryCap.value));
@@ -764,7 +773,6 @@
       enforceHistoryCap();
       draw();
     });
-
     chkToroidal.addEventListener('change', () => { updateStatus(); draw(); });
     chkTrends.addEventListener('change', () => { draw(); });
     chkAging.addEventListener('change', () => {});
