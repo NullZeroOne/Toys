@@ -2,77 +2,247 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Game of Life Product Requirements Document</title>
+  <title>Conway’s Game of Life — Product Requirements Document (PRD)</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.55; margin: 2em; max-width: 980px; }
     h1, h2, h3 { color: #2f6feb; }
-    code { background: #f4f4f4; padding: 2px 4px; border-radius: 4px; }
-    ul { margin-top: 0.3em; }
-    .callout { background: #f6f7f9; border: 1px solid #e1e4e8; padding: 10px 12px; border-radius: 8px; }
+    code, pre { background: #f6f7f9; border: 1px solid #e1e4e8; border-radius: 6px; }
+    pre { padding: 12px; overflow:auto; }
+    .toc { background:#f6f7f9; border:1px solid #e1e4e8; padding:12px; border-radius:8px; }
+    .toc ol { margin:0; padding-left: 18px; }
+    ul.compact li { margin: 3px 0; }
   </style>
 </head>
 <body>
-  <h1>Conway’s Game of Life — Product Requirements Document (PRD)</h1>
+  <h1>Conway’s Game of Life — Product Requirements Document</h1>
 
-  <h2>Overview</h2>
-  <p>This is a browser-based implementation of Conway’s Game of Life with advanced visualization and control features, including Rainbow mode, Aging with PopRebal, directional/quarter fills, history with undo/redo, Trends visualization with legend, keyboard shortcuts, and an FPS indicator.</p>
-
-  <h2>Defaults</h2>
-  <ul>
-    <li>Default block size: <strong>15 px</strong></li>
-    <li>Default history buffer size: <strong>20</strong></li>
-    <li>Default fill percentage: <strong>10%</strong></li>
-    <li>Toroidal topology: <strong>enabled</strong> by default</li>
-    <li>Rainbow mode: <strong>disabled</strong> by default</li>
-    <li>Trends: <strong>disabled</strong> by default</li>
-    <li>Aging: <strong>disabled</strong> by default</li>
-    <li>PopRebal: <strong>disabled</strong> by default (requires Aging)</li>
-  </ul>
-
-  <h2>Controls & UI Layout</h2>
-  <div class="callout">
-    <p><strong>Compact, narrow layout.</strong> Reduce vertical and horizontal whitespace (tighter paddings/margins), while preserving the left-panel design.</p>
-    <ul>
-      <li><strong>Top row:</strong> Play, Pause, ⬅️ (step back), ➡️ (step forward) on a single line.</li>
-      <li><strong>Block size + Resize:</strong> Place the <em>Resize</em> button <u>next to</u> the <em>Block size (px)</em> input. Both the input and the button are <strong>narrow</strong> so they do not increase panel width.</li>
-      <li><strong>Fill % + Color Picker:</strong> Place the color swatch button <u>next to</u> the <em>Fill %</em> input on the same line. The swatch is <strong>narrow</strong> (small square) to keep the layout compact.</li>
-      <li><strong>Fill controls:</strong> 3×3 grid of buttons laid out as:
-        <br>↖️ ⬆️ ↗️
-        <br>⬅️ ⏺️ ➡️
-        <br>↙️ ⬇️ ↘️
-      </li>
-      <li><strong>Trends legend:</strong> shown on-canvas when Trends is enabled.</li>
-      <li><strong>Keyboard shortcuts:</strong> space = play/pause, ← = step back, → = step forward (shortcuts ignored while typing in inputs).</li>
-    </ul>
+  <div class="toc">
+    <h3>Table of Contents</h3>
+    <ol>
+      <li>Overview & Scope</li>
+      <li>Defaults</li>
+      <li>UI Layout & Controls</li>
+      <li>Editing & Fill Tools</li>
+      <li>Simulation Rules</li>
+      <li>Aging & Population Rebalancing</li>
+      <li>Visualization Modes</li>
+      <li>History & Bug Fix</li>
+      <li>Diagnostics</li>
+      <li>Favicon & Branding</li>
+      <li>Keyboard Shortcuts</li>
+      <li>Presets Feature</li>
+      <li>Pseudocode (Algorithms)</li>
+      <li>Developer Notes</li>
+    </ol>
   </div>
 
-  <h2>Behavior</h2>
-  <ul>
-    <li><strong>History & Undo/Redo:</strong> Manual edits (drawing/filling) push snapshots. Also snapshot before stepping forward if there are unsaved edits. This resolves the prior bug where stepping back after drawing returned to a blank state.</li>
-    <li><strong>Clear:</strong> Clears the board and the entire history.</li>
-    <li><strong>Fill behavior:</strong> Filling activates a percentage of the chosen region without turning off existing cells; repeated clicks pick new random cells.</li>
-    <li><strong>Rendering (non-Rainbow):</strong> When Rainbow mode is <em>off</em>, live cells are rendered using their stored per-cell colors (Colorize option removed; always on).</li>
-    <li><strong>Rainbow Mode:</strong> Births (exactly 3 neighbors) get the RGB average of those neighbors. Colors are always stored. Existing cells do not change color when toggling the mode.</li>
-    <li><strong>Aging:</strong> When a cell has been alive across the full, filled history window, it dies; respawns radiate outward using the specified rules. Rainbow + Aging can be enabled simultaneously; aged respawn colors average immediate neighbors at the spawn point, or inherit the aged cell color if none.</li>
-    <li><strong>PopRebal (requires Aging):</strong> Uses Fill% and Threshold%:
-      <ul>
-        <li>Population &lt; (Fill% − Threshold%) → spawn count per aged death = BR + 1</li>
-        <li>Within range → spawn count = BR</li>
-        <li>Population &gt; (Fill% + Threshold%) → spawn count = max(BR − 1, 0)</li>
-      </ul>
-    </li>
-    <li><strong>Trends:</strong> Trend coloring uses a white→blue→teal→green→yellow→red gradient based on the fraction of known states (current + history) in which a cell has been alive; when there’s no history, show the current state normally.</li>
-    <li><strong>Diagnostics:</strong> Generation, live count, grid size, topology, live %, and FPS (updated while running; persists when paused; stepping does not change the FPS value).</li>
+  <h2>1) Overview & Scope</h2>
+  <p>A feature-rich browser-based Game of Life with advanced visualization (Rainbow, Trends), Aging with Population Rebalancing, Presets modal with classic patterns, history navigation, fill tools, diagnostics, and favicon branding.</p>
+
+  <h2>2) Defaults</h2>
+  <ul class="compact">
+    <li>Block size: 15 px</li>
+    <li>History buffer: 20</li>
+    <li>Fill percentage default: 10%</li>
+    <li>Initial fill: 30% random live cells (using fill color)</li>
+    <li>Toroidal topology: enabled</li>
+    <li>Rainbow: off</li>
+    <li>Trends: off</li>
+    <li>Aging: off</li>
+    <li>PopRebal: off (requires Aging)</li>
+    <li>Birth rate: 2 (enabled only if Aging)</li>
   </ul>
 
-  <h2>Developer Notes</h2>
-  <ul>
-    <li>Initial board load fills a random 30% of cells (using the selected color).</li>
-    <li>Step-forward engine runs per animation frame; FPS is measured from frame deltas.</li>
-    <li>Toroidal topology is enabled by default but can be toggled.</li>
+  <h2>3) UI Layout & Controls</h2>
+  <ul class="compact">
+    <li>Top row: Play, Pause, ⬅️, ➡️ on one line.</li>
+    <li>Block size + Resize on same row (compact).</li>
+    <li>Rainbow, Trends, Aging, PopRebal, Birth rate, Threshold fields.</li>
+    <li>Fill % + color picker swatch.</li>
+    <li>Fill controls: 3×3 grid (halves + quarters + full board).</li>
+    <li>Clear button below Fill.</li>
+    <li>Presets button below Clear (opens modal).</li>
+    <li>Status diagnostics at bottom.</li>
   </ul>
 
-  <h2>Known Fixes</h2>
-  <p><strong>History bug fixed:</strong> Step Back after drawing now correctly returns to the drawn shape (manual edits push snapshots; pending edits snapshot before advancing).</p>
+  <h2>4) Editing & Fill Tools</h2>
+  <ul class="compact">
+    <li>Canvas editing: click toggles, drag paints with fill color.</li>
+    <li>Fill %: adds live cells in region; does not deactivate existing ones.</li>
+    <li>Regions: center, halves, quarters.</li>
+    <li>Color picker: sets fill/draw color; presets also use fill color initially.</li>
+  </ul>
+
+  <h2>5) Simulation Rules</h2>
+  <ul class="compact">
+    <li>Classic Life rules (3 births, 2-3 survival).</li>
+    <li>Toroidal wrapping if enabled.</li>
+    <li>One generation per frame when running.</li>
+  </ul>
+
+  <h2>6) Aging & Population Rebalancing</h2>
+  <h3>Aging</h3>
+  <ul class="compact">
+    <li>Cells alive in all saved states across full history die of age.</li>
+    <li>Respawn placement: search outward rings until empty found.</li>
+    <li>Spawn count = Birth rate (BR) if PopRebal off.</li>
+    <li>Respawn color: Rainbow → neighbor average or dying cell; Non-Rainbow → fill color.</li>
+  </ul>
+  <h3>Population Rebalancing</h3>
+  <ul class="compact">
+    <li>Available only if Aging enabled.</li>
+    <li>If live% &lt; Fill% − Threshold → BR+1 spawns.</li>
+    <li>If within threshold → BR spawns.</li>
+    <li>If live% &gt; Fill% + Threshold → max(BR−1, 0) spawns.</li>
+  </ul>
+
+  <h2>7) Visualization Modes</h2>
+  <ul class="compact">
+    <li>Stored colors always maintained.</li>
+    <li>Rainbow births = neighbor average.</li>
+    <li>Non-Rainbow rendering uses stored colors.</li>
+    <li>Trends: color by fraction alive across history (gradient white→blue→teal→green→yellow→red with on-canvas legend).</li>
+  </ul>
+
+  <h2>8) History & Bug Fix</h2>
+  <ul class="compact">
+    <li>User-set buffer (default 20).</li>
+    <li>Snapshots on edits, before stepping, after generations.</li>
+    <li>Bug fix: stepping back after drawing returns to drawn shape.</li>
+    <li>Clear wipes grid + history, adds snapshot for empty state.</li>
+  </ul>
+
+  <h2>9) Diagnostics</h2>
+  <ul class="compact">
+    <li>Show: Generation, Live count, Grid size, Topology, Live %, FPS.</li>
+    <li>FPS updates each frame, persists when paused.</li>
+  </ul>
+
+  <h2>10) Favicon & Branding</h2>
+  <p>Blue block icon exported as GameOfLife.ico and PNGs. Include links in head. Cache-busting needed for updates.</p>
+
+  <h2>11) Keyboard Shortcuts</h2>
+  <ul class="compact">
+    <li>Space = Play/Pause</li>
+    <li>← = Step back</li>
+    <li>→ = Step forward</li>
+    <li>Disabled when focus in input field.</li>
+  </ul>
+
+  <h2>12) Presets Feature</h2>
+  <p>Presets button opens modal with pattern list. Selecting one clears board + history, centers pattern, resets generation, and snapshots.</p>
+  <h3>Patterns</h3>
+  <ul class="compact">
+    <li>Still Lifes: Block, Beehive, Loaf, Boat</li>
+    <li>Oscillators: Blinker, Toad, Beacon, Pulsar, Pentadecathlon</li>
+    <li>Spaceships: Glider, LWSS, MWSS, HWSS</li>
+    <li>Guns & Engines: Gosper Glider Gun, Simkin Gun, Puffer Train</li>
+    <li>Chaotic seeds: R-pentomino, Diehard, Acorn</li>
+  </ul>
+
+  <h2>13) Pseudocode (Algorithms)</h2>
+  <h3>Neighbor Counting</h3>
+  <pre><code>function neighbors(r,c):
+  sum=0; list=[]
+  for dr in -1..1:
+    for dc in -1..1:
+      if dr==0 and dc==0: continue
+      rr=r+dr; cc=c+dc
+      if TOROIDAL:
+        rr=(rr+ROWS)%ROWS; cc=(cc+COLS)%COLS
+      else if rr&lt;0 or rr&gt;=ROWS or cc&lt;0 or cc&gt;=COLS: continue
+      if GRID[rr,cc]==1: sum++; list.append((rr,cc))
+  return sum,list</code></pre>
+
+  <h3>Classic Step with Rainbow</h3>
+  <pre><code>function compute_next():
+  for each cell:
+    (sum,list)=neighbors()
+    if alive:
+      alive_next = sum in {2,3}
+    else if sum==3:
+      alive_next = true
+      if RAINBOW: color=avg(colors of 3 neighbors)
+      else: color=FILL_COLOR
+</code></pre>
+
+  <h3>Trends Rendering</h3>
+  <pre><code>function draw_trends():
+  known=history length
+  for each cell:
+    frac=alive_count/known
+    color=gradient(frac)
+</code></pre>
+
+  <h3>History Management</h3>
+  <pre><code>maybe_snapshot():
+  if DIRTY:
+    truncate redo tail
+    push snapshot
+    DIRTY=false
+
+step_forward_user():
+  if at tip:
+    maybe_snapshot()
+    compute_next()
+    apply_aging()
+    push snapshot
+  else:
+    cursor++
+</code></pre>
+
+  <h3>Aging Detection</h3>
+  <pre><code>find_aged_cells():
+  aged=[]
+  for cell alive:
+    if alive in all saved states: aged.append(cell)
+</code></pre>
+
+  <h3>Aging Respawn</h3>
+  <pre><code>spawn_one(center):
+  for radius in 1..max:
+    ring=cells at distance=radius
+    pick random empty
+    if found return index
+</code></pre>
+
+  <h3>Respawn Count</h3>
+  <pre><code>respawn_count():
+  if not AGING: return 0
+  base=BR
+  if POPREBAL:
+    if live% &lt; Fill%-Threshold: return base+1
+    if live% &gt; Fill%+Threshold: return max(base-1,0)
+  return base</code></pre>
+
+  <h3>Aging Phase</h3>
+  <pre><code>apply_aging():
+  aged=find_aged_cells()
+  for each aged cell:
+    kill
+    for k in 1..respawn_count():
+      j=spawn_one()
+      if j:
+        if RAINBOW: color=avg neighbors or dying cell
+        else: color=FILL_COLOR
+</code></pre>
+
+  <h3>Presets Placement</h3>
+  <pre><code>applyPreset(pattern):
+  clearBoard()
+  clearHistory()
+  offset=centerOffset(pattern)
+  for (dr,dc) in pattern.cells:
+    place cell at offset+dr,dc with FILL_COLOR
+  generation=0
+  pushHistorySnapshot()</code></pre>
+
+  <h2>14) Developer Notes</h2>
+  <ul class="compact">
+    <li>Use typed arrays for performance.</li>
+    <li>Canvas rendering in blockSize px squares.</li>
+    <li>Favicons cached; use ?v=2 when testing.</li>
+    <li>Accessibility: labels + shortcuts skip inputs.</li>
+  </ul>
 </body>
 </html>

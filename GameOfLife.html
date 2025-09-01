@@ -1,4 +1,9 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Conway's Game of Life — Rainbow + Aging</title>
+<link rel="icon" href="GameOfLife-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="GameOfLife-16.png" sizes="16x16" type="image/png">
+<link rel="shortcut icon" href="GameOfLife.ico" type="image/x-icon">
+<link rel="apple-touch-icon" href="GameOfLife-apple-touch-180.png" sizes="180x180">
+<meta name="theme-color" content="#0a67ff">
 <style>
 :root{--panel-bg:#f6f7f9;--panel-border:#e1e4e8;--accent:#2f6feb;--text:#111}
 *{box-sizing:border-box}html,body{height:100%;margin:0;color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
@@ -22,6 +27,18 @@ button.icon{padding:5px 6px}.primary{background:var(--accent);color:#fff;border-
 #btnFillColor{width:22px;height:22px;border-radius:5px;border:1px solid var(--panel-border);padding:0;overflow:hidden}
 #btnFillColor::-webkit-color-swatch-wrapper{padding:0}#btnFillColor::-webkit-color-swatch{border:none}
 #btnResizeFit{padding:4px 6px}
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:9999}
+.modal{background:#fff;border:1px solid #e1e4e8;border-radius:8px;max-width:720px;width:92vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.modal header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #e1e4e8}
+.modal h3{margin:0;font-size:16px;color:#2f6feb}
+.modal .content{padding:8px 12px;overflow:auto}
+.pattern-list{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pattern-item{display:flex;justify-content:space-between;align-items:center;border:1px solid #e1e4e8;border-radius:6px;padding:6px 8px}
+.pattern-item small{color:#555}
+.pattern-item button{padding:4px 8px}
+.pattern-item.disabled{opacity:.5;pointer-events:none}
+.modal footer{padding:8px 12px;border-top:1px solid #e1e4e8;display:flex;justify-content:flex-end;gap:8px}
 </style></head><body>
 <div class="app"><aside class="controls">
   <h1>Conway's Game of Life</h1>
@@ -61,7 +78,7 @@ button.icon{padding:5px 6px}.primary{background:var(--accent);color:#fff;border-
       <button id="btnFillDown" title="Fill bottom half">⬇️</button>
       <button id="btnFillSE" title="Fill bottom-right quarter">↘️</button>
     </div></div>
-    <div class="row tight"><button id="btnClear">Clear</button></div>
+    <div class="row tight"><button id="btnClear">Clear</button> <button id="btnPresets">Presets</button></div>
   </div>
   <div class="group"><div class="status">
     <div><strong>Generation:</strong> <span id="statGeneration">0</span></div>
@@ -72,12 +89,24 @@ button.icon{padding:5px 6px}.primary{background:var(--accent);color:#fff;border-
     <div><strong>FPS:</strong> <span id="statFPS">0</span></div>
   </div></div>
 </aside><main class="board-wrap"><canvas id="board"></canvas></main></div>
+
+<!-- Presets Modal -->
+<div class="modal-backdrop" id="presetsModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="presetsTitle">
+    <header><h3 id="presetsTitle">Pattern Presets</h3><button id="btnClosePresets" title="Close">✖</button></header>
+    <div class="content">
+      <div class="pattern-list" id="patternList"></div>
+    </div>
+    <footer><button id="btnCancelPresets">Cancel</button></footer>
+  </div>
+</div>
+
 <script>
 (()=>{
 const canvas=document.getElementById('board'),ctx=canvas.getContext('2d',{alpha:false});
 const btnPlay=document.getElementById('btnPlay'),btnPause=document.getElementById('btnPause'),btnStepForward=document.getElementById('btnStepForward'),btnStepBack=document.getElementById('btnStepBack');
 const btnFillUp=document.getElementById('btnFillUp'),btnFillDown=document.getElementById('btnFillDown'),btnFillLeft=document.getElementById('btnFillLeft'),btnFillRight=document.getElementById('btnFillRight'),btnFillCenter=document.getElementById('btnFillCenter'),btnFillNW=document.getElementById('btnFillNW'),btnFillNE=document.getElementById('btnFillNE'),btnFillSW=document.getElementById('btnFillSW'),btnFillSE=document.getElementById('btnFillSE');
-const colorPicker=document.getElementById('btnFillColor'),btnClear=document.getElementById('btnClear'),btnResizeFit=document.getElementById('btnResizeFit');
+const colorPicker=document.getElementById('btnFillColor'),btnClear=document.getElementById('btnClear'),btnResizeFit=document.getElementById('btnResizeFit'),btnPresets=document.getElementById('btnPresets');
 const inputFillPercent=document.getElementById('inputFillPercent'),inputBlockSize=document.getElementById('inputBlockSize'),inputHistoryCap=document.getElementById('inputHistoryCap'),inputRebalThreshold=document.getElementById('inputRebalThreshold'),inputBirthRate=document.getElementById('inputBirthRate');
 const chkToroidal=document.getElementById('chkToroidal'),chkRainbow=document.getElementById('chkRainbow'),chkTrends=document.getElementById('chkTrends'),chkAging=document.getElementById('chkAging'),chkPopRebal=document.getElementById('chkPopRebal');
 const statGeneration=document.getElementById('statGeneration'),statLive=document.getElementById('statLive'),statSize=document.getElementById('statSize'),statTopology=document.getElementById('statTopology'),statLivePct=document.getElementById('statLivePct'),statFPS=document.getElementById('statFPS');
@@ -141,6 +170,121 @@ inputHistoryCap.addEventListener('change',()=>{const v=Math.floor(Number(inputHi
 chkToroidal.addEventListener('change',()=>{updateStatus();draw()});[chkRainbow,chkTrends,chkAging,chkPopRebal].forEach(el=>el.addEventListener('change',()=>{syncEnabledStates();draw()}));
 window.addEventListener('resize',()=>{});canvas.addEventListener('pointerdown',handlePointerDown);
 window.addEventListener('keydown',e=>{const tag=(e.target&&e.target.tagName)||'';const edit=(e.target&&(e.target.isContentEditable||tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'));if(edit)return;if(e.code==='Space'){e.preventDefault();running?pausePlay():startPlay()}else if(e.code==='ArrowLeft'){e.preventDefault();if(!running)stepBackUser()}else if(e.code==='ArrowRight'){e.preventDefault();if(!running)stepForwardUser()}});
+
+// ---- Presets Patterns ----
+const PATTERNS = [
+  // Still Lifes
+  {key:'block', name:'Block', desc:'2×2 still life', coords:[ [0,0],[0,1],[1,0],[1,1] ]},
+  {key:'beehive', name:'Beehive', desc:'6-cell still life', coords:[ [0,1],[0,2],[1,0],[1,3],[2,1],[2,2] ]},
+  {key:'loaf', name:'Loaf', desc:'7-cell still life', coords:[ [0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2] ]},
+  {key:'boat', name:'Boat', desc:'5-cell still life', coords:[ [0,0],[0,1],[1,0],[1,2],[2,1] ]},
+
+  // Oscillators
+  {key:'blinker', name:'Blinker', desc:'Period 2', coords:[ [0,-1],[0,0],[0,1] ]},
+  {key:'toad', name:'Toad', desc:'Period 2', coords:[ [0,1],[0,2],[0,3],[1,0],[1,1],[1,2] ]},
+  {key:'beacon', name:'Beacon', desc:'Period 2', coords:[ [0,0],[0,1],[1,0],[2,3],[3,2],[3,3] ]},
+  // (Large) {key:'pulsar', name:'Pulsar', desc:'Period 3 (coming soon)', coords:[], disabled:true},
+  // (Large) {key:'pentadecathlon', name:'Pentadecathlon', desc:'Period 15 (coming soon)', coords:[], disabled:true},
+
+  // Spaceships
+  {key:'glider', name:'Glider', desc:'Spaceship', coords:[ [0,1],[1,2],[2,0],[2,1],[2,2] ]},
+  // (Large) {key:'lwss', name:'LWSS', desc:'Spaceship (coming soon)', coords:[], disabled:true},
+  // (Large) {key:'mwss', name:'MWSS', desc:'Spaceship (coming soon)', coords:[], disabled:true},
+  // (Large) {key:'hwss', name:'HWSS', desc:'Spaceship (coming soon)', coords:[], disabled:true},
+
+  // Guns & Engines (large)
+  // (Large) {key:'gosper', name:'Gosper Glider Gun', desc:'Gun (coming soon)', coords:[], disabled:true},
+  // (Large) {key:'simkin', name:'Simkin Glider Gun', desc:'Gun (coming soon)', coords:[], disabled:true},
+  // (Large) {key:'puffer', name:'Puffer Train', desc:'Engine (coming soon)', coords:[], disabled:true},
+
+  // Chaotic / Famous seeds
+  {key:'r_pentomino', name:'R-pentomino', desc:'Chaotic seed (favicon)', coords:[ [0,1],[0,2],[1,0],[1,1],[2,1] ]},
+  {key:'diehard', name:'Diehard', desc:'Finite seed (≈130 gens)', coords:[ [0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7] ]},
+  {key:'acorn', name:'Acorn', desc:'7-cell tiny seed', coords:[ [0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6] ]},
+];
+
+function openPresets(){
+  const modal = document.getElementById('presetsModal');
+  const list = document.getElementById('patternList');
+  list.innerHTML = '';
+  // Grouping headings
+  const sections = [
+    {title:'Still Lifes', keys:['block','beehive','loaf','boat']},
+    {title:'Oscillators', keys:['blinker','toad','beacon','pulsar','pentadecathlon']},
+    {title:'Spaceships', keys:['glider','lwss','mwss','hwss']},
+    {title:'Guns & Engines', keys:['gosper','simkin','puffer']},
+    {title:'Chaotic / Famous Seeds', keys:['r_pentomino','diehard','acorn']},
+  ];
+  for(const sec of sections){
+    const h = document.createElement('h4'); h.textContent = sec.title; list.appendChild(h);
+    for(const key of sec.keys){
+      const p = PATTERNS.find(x=>x.key===key);
+      if(!p){ const div = document.createElement('div'); div.className='pattern-item disabled'; div.innerHTML = `<span>${key}</span><small>coming soon</small>`; list.appendChild(div); continue; }
+      const div = document.createElement('div'); div.className='pattern-item'+(p.disabled?' disabled':'');
+      const left = document.createElement('div'); left.innerHTML = `<strong>${p.name}</strong><br><small>${p.desc}</small>`;
+      const btn = document.createElement('button'); btn.textContent = p.disabled?'Coming soon':'Load';
+      btn.disabled = !!p.disabled;
+      btn.addEventListener('click', ()=>{ applyPreset(p); closePresets(); });
+      div.appendChild(left); div.appendChild(btn); list.appendChild(div);
+    }
+  }
+  modal.style.display='flex';
+}
+function closePresets(){ document.getElementById('presetsModal').style.display='none'; }
+
+function centerOffset(pattern){
+  // Compute bounding box of coords
+  let minR=Infinity,minC=Infinity,maxR=-Infinity,maxC=-Infinity;
+  for(const [dr,dc] of pattern.coords){
+    if(dr<minR)minR=dr; if(dc<minC)minC=dc;
+    if(dr>maxR)maxR=dr; if(dc>maxC)maxC=dc;
+  }
+  const h = maxR - minR + 1, w = maxC - minC + 1;
+  const offR = Math.max(0, Math.floor((rows - h)/2) - minR);
+  const offC = Math.max(0, Math.floor((cols - w)/2) - minC);
+  return {r:offR, c:offC};
+}
+
+function clearBoardOnly(){
+  grid.fill(0);
+  colR.fill(0); colG.fill(0); colB.fill(0);
+  generation = 0;
+  draw();
+  updateStatus();
+}
+
+function applyPreset(pat){
+  // 1) Clear board and history
+  clearBoardOnly();
+  history = []; cursor = -1; lastFPS=0; lastTickTime=null; dirtySinceSnapshot=false;
+  // 2) Place pattern centered
+  const off = centerOffset(pat);
+  const [fr,fg,fb] = getFillRGB();
+  for(const [dr,dc] of pat.coords){
+    const r = off.r + dr, c = off.c + dc;
+    if(r>=0 && r<rows && c>=0 && c<cols){
+      const i = idx(r,c);
+      grid[i]=1; colR[i]=fr; colG[i]=fg; colB[i]=fb;
+    }
+  }
+  // 3) Reset generation and snapshot
+  generation = 0;
+  pushHistorySnapshot();
+  draw();
+  updateStatus();
+}
+
+// Wire modal events
+document.getElementById('btnPresets').addEventListener('click', ()=>{
+  if(running) pausePlay();
+  openPresets();
+});
+document.getElementById('btnClosePresets').addEventListener('click', closePresets);
+document.getElementById('btnCancelPresets').addEventListener('click', closePresets);
+document.getElementById('presetsModal').addEventListener('click', (e)=>{
+  if(e.target.id==='presetsModal') closePresets();
+});
+
 init();
 })();
 </script></body></html>
