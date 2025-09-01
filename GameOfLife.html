@@ -1,290 +1,694 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Conway's Game of Life — Rainbow + Aging</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Conway's Game of Life — Extended</title>
 <link rel="icon" href="GameOfLife-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="GameOfLife-16.png" sizes="16x16" type="image/png">
 <link rel="shortcut icon" href="GameOfLife.ico" type="image/x-icon">
 <link rel="apple-touch-icon" href="GameOfLife-apple-touch-180.png" sizes="180x180">
 <meta name="theme-color" content="#0a67ff">
 <style>
-:root{--panel-bg:#f6f7f9;--panel-border:#e1e4e8;--accent:#2f6feb;--text:#111}
-*{box-sizing:border-box}html,body{height:100%;margin:0;color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
-.app{height:100vh;display:flex;overflow:hidden}
-.controls{width:260px;max-width:42vw;background:var(--panel-bg);border-right:1px solid var(--panel-border);padding:8px 10px;overflow:auto}
-.controls h1{font-size:14px;margin:0 0 6px 0}
-.group{margin-bottom:8px;padding-bottom:6px;border-bottom:1px dashed var(--panel-border)}
-.row{display:flex;gap:6px;align-items:center;margin:3px 0;flex-wrap:wrap}
-.row.tight{gap:4px;margin:2px 0}.row.stack{flex-direction:column;align-items:flex-start}
-label{font-size:12px}
-.inline{display:grid;grid-template-columns:auto 1fr auto;gap:4px 6px;align-items:center;width:100%}
-input[type=number]{width:70px;padding:3px 5px;border:1px solid var(--panel-border);border-radius:6px;font-size:12px;background:#fff}
-input[type=checkbox]{transform:translateY(1px);width:14px;height:14px}
-.checkbox-row{display:grid;grid-template-columns:1fr auto;gap:2px 6px;width:100%}.checkbox-row label{align-self:center}
-button{padding:5px 8px;border-radius:7px;border:1px solid var(--panel-border);background:#fff;font-size:12px;cursor:pointer;white-space:nowrap}
-button.icon{padding:5px 6px}.primary{background:var(--accent);color:#fff;border-color:var(--accent)}button:disabled{opacity:.55;cursor:not-allowed}
-.status{display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;font-size:11px}.status div{white-space:nowrap}
-.board-wrap{position:relative;flex:1;overflow:auto;background:#fff}canvas{display:block;image-rendering:pixelated;background:#fff}
-.disabled-field{opacity:.6;pointer-events:none}
-.fill-buttons{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.fill-grid{display:grid;grid-template-columns:repeat(3,auto);gap:4px}.fill-grid button{font-size:15px;padding:3px 6px}
-#btnFillColor{width:22px;height:22px;border-radius:5px;border:1px solid var(--panel-border);padding:0;overflow:hidden}
-#btnFillColor::-webkit-color-swatch-wrapper{padding:0}#btnFillColor::-webkit-color-swatch{border:none}
-#btnResizeFit{padding:4px 6px}
-/* Modal */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:9999}
-.modal{background:#fff;border:1px solid #e1e4e8;border-radius:8px;max-width:720px;width:92vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2)}
-.modal header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #e1e4e8}
-.modal h3{margin:0;font-size:16px;color:#2f6feb}
-.modal .content{padding:8px 12px;overflow:auto}
-.pattern-list{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.pattern-item{display:flex;justify-content:space-between;align-items:center;border:1px solid #e1e4e8;border-radius:6px;padding:6px 8px}
-.pattern-item small{color:#555}
-.pattern-item button{padding:4px 8px}
-.pattern-item.disabled{opacity:.5;pointer-events:none}
-.modal footer{padding:8px 12px;border-top:1px solid #e1e4e8;display:flex;justify-content:flex-end;gap:8px}
-</style></head><body>
-<div class="app"><aside class="controls">
-  <h1>Conway's Game of Life</h1>
-  <div class="group"><div class="row tight">
-    <button id="btnPlay" class="primary" title="Play">Play</button>
-    <button id="btnPause" title="Pause">Pause</button>
-    <button id="btnStepBack" class="icon" title="Step back one generation">⬅️</button>
-    <button id="btnStepForward" class="icon" title="Step forward one generation">➡️</button>
-  </div></div>
-  <div class="group"><div class="row inline">
-    <label for="inputBlockSize">Block px</label><input id="inputBlockSize" type="number" min="1" step="1" value="15"/>
-    <button id="btnResizeFit" title="Resize grid to fit available area with current block size">Resize</button>
-  </div></div>
-  <div class="group"><div class="row stack">
-    <div class="checkbox-row"><label for="chkRainbow">Rainbow</label><input id="chkRainbow" type="checkbox"/></div>
-    <div class="checkbox-row"><label for="chkTrends">Trends</label><input id="chkTrends" type="checkbox"/></div>
-    <div class="checkbox-row"><label for="chkAging">Aging</label><input id="chkAging" type="checkbox"/></div>
-    <div class="row inline" id="birthRateRow"><label for="inputBirthRate">Birth rate</label><input id="inputBirthRate" type="number" min="0" step="1" value="2"/></div>
-    <div class="checkbox-row"><label for="chkPopRebal">PopRebal</label><input id="chkPopRebal" type="checkbox"/></div>
-    <div class="row inline" id="thresholdRow"><label for="inputRebalThreshold">Threshold %</label><input id="inputRebalThreshold" type="number" min="0" max="100" step="1" value="5"/></div>
-  </div>
-  <div class="row inline"><label for="inputHistoryCap">History</label><input id="inputHistoryCap" type="number" min="1" max="500" step="1" value="20"/></div>
-  <div class="checkbox-row"><label for="chkToroidal">Toroidal</label><input id="chkToroidal" type="checkbox" checked/></div></div>
-  <div class="group">
-    <div class="row inline"><label for="inputFillPercent">Fill %</label>
-      <input id="inputFillPercent" type="number" min="0" max="100" step="1" value="10"/>
-      <input id="btnFillColor" type="color" value="#007bff" title="Fill color (also used for manual drawing)"/>
+  :root{
+    --bg:#0b0c10; --panel:#15171b; --muted:#a9b3c0; --text:#e8ecf1;
+    --grid:#23262c; --btn:#1d2026; --btn2:#262a32; --accent:#2f6feb;
+    --border:#1f2229;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  .app{display:flex;height:100%}
+  aside{width:340px;max-width:40vw;background:var(--panel);border-right:1px solid var(--border);padding:10px;overflow:auto}
+  main{flex:1;display:flex;flex-direction:column;min-width:0}
+  header{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;gap:10px;align-items:center}
+  .spacer{flex:1}
+  .pill{padding:5px 8px;border-radius:999px;background:#10131a;border:1px solid #222632;color:var(--muted);font-size:12px}
+  canvas{display:block;flex:1;background:#0b0c10;image-rendering:pixelated}
+  h3{margin:10px 0 4px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .controls button{padding:6px 9px;border-radius:8px;background:var(--btn);border:1px solid var(--btn2);color:var(--text);cursor:pointer}
+  .controls button:hover{background:#2a2f39}
+  .controls button:disabled{opacity:.55;cursor:not-allowed}
+  input[type="number"]{width:70px;padding:6px 8px;border-radius:8px;border:1px solid #242730;background:#111319;color:var(--text)}
+  input[type="checkbox"]{transform:translateY(1px)}
+  label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .narrow input[type="number"]{width:64px}
+  .swatch{width:26px;height:26px;border-radius:6px;border:1px solid #2a2f3a;background:#2a6cff;cursor:pointer}
+  .grid3{display:grid;grid-template-columns:repeat(3,34px);grid-auto-rows:34px;gap:6px}
+  .grid3 button{padding:0;font-size:18px;background:var(--btn);border:1px solid var(--btn2);border-radius:8px;color:var(--text);cursor:pointer}
+  .grid3 button:hover{background:#2a2f39}
+  .legend{display:flex;align-items:center;gap:8px;margin-top:4px}
+  .legend-bar{width:160px;height:10px;border-radius:4px;background:linear-gradient(90deg,#ffffff,#b3e5ff,#47d7ff,#1ccbaa,#8ce91c,#ffe54d,#ff7a45,#ff1f1f);border:1px solid #2b3039}
+  .diag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);margin-top:6px}
+  .divider{height:1px;background:#1e222a;margin:10px 0}
+  /* Modal */
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:20}
+  .modal{width:min(900px, calc(100% - 24px));max-height:80vh;overflow:auto;background:var(--panel);border:1px solid #2a2e37;border-radius:12px;box-shadow:0 12px 50px rgba(0,0,0,.5)}
+  .modal header{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--panel);z-index:1;padding:10px 12px;border-bottom:1px solid var(--border)}
+  .preset-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:12px}
+  .card{border:1px solid #2a2e37;background:#10131a;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .card h4{margin:0;font-size:14px}
+  .card small{color:var(--muted)}
+  .tiny{padding:5px 8px;border-radius:7px;background:var(--btn);border:1px solid var(--btn2);color:var(--text);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="row controls">
+      <button id="btnPlay" title="Play">▶</button>
+      <button id="btnPause" title="Pause">⏸</button>
+      <button id="btnStepBack" title="Step Back">⟵</button>
+      <button id="btnStepForward" title="Step Forward">⟶</button>
+      <button id="btnClear" title="Clear board & history">Clear</button>
     </div>
-    <div class="fill-buttons"><span>Fill:</span><div class="fill-grid">
-      <button id="btnFillNW" title="Fill top-left quarter">↖️</button>
-      <button id="btnFillUp" title="Fill top half">⬆️</button>
-      <button id="btnFillNE" title="Fill top-right quarter">↗️</button>
-      <button id="btnFillLeft" title="Fill left half">⬅️</button>
-      <button id="btnFillCenter" title="Fill entire board">⏺️</button>
-      <button id="btnFillRight" title="Fill right half">➡️</button>
-      <button id="btnFillSW" title="Fill bottom-left quarter">↙️</button>
-      <button id="btnFillDown" title="Fill bottom half">⬇️</button>
-      <button id="btnFillSE" title="Fill bottom-right quarter">↘️</button>
-    </div></div>
-    <div class="row tight"><button id="btnClear">Clear</button> <button id="btnPresets">Presets</button></div>
-  </div>
-  <div class="group"><div class="status">
-    <div><strong>Generation:</strong> <span id="statGeneration">0</span></div>
-    <div><strong>Live cells:</strong> <span id="statLive">0</span></div>
-    <div><strong>Grid:</strong> <span id="statSize">0×0</span></div>
-    <div><strong>Topology:</strong> <span id="statTopology">Toroidal</span></div>
-    <div><strong>Live %:</strong> <span id="statLivePct">0%</span></div>
-    <div><strong>FPS:</strong> <span id="statFPS">0</span></div>
-  </div></div>
-</aside><main class="board-wrap"><canvas id="board"></canvas></main></div>
+
+    <div class="row narrow" style="margin-top:8px;">
+      <label>Block Size <input type="number" id="inputBlock" min="1" step="1" value="15"></label>
+      <button id="btnResize" class="tiny" title="Resize grid to fit">Resize</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row narrow">
+      <label>Fill % <input type="number" id="inputFillPct" min="0" max="100" step="1" value="10"></label>
+      <button id="btnColor" class="swatch" title="Fill & draw color"></button>
+    </div>
+
+    <h3>Fill Region</h3>
+    <div class="grid3">
+      <button data-fill="ul" title="Top-Left">↖</button>
+      <button data-fill="u"  title="Top Half">↑</button>
+      <button data-fill="ur" title="Top-Right">↗</button>
+      <button data-fill="l"  title="Left Half">←</button>
+      <button data-fill="c"  title="Whole Board">•</button>
+      <button data-fill="r"  title="Right Half">→</button>
+      <button data-fill="dl" title="Bottom-Left">↙</button>
+      <button data-fill="d"  title="Bottom Half">↓</button>
+      <button data-fill="dr" title="Bottom-Right">↘</button>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <button id="btnQuarters" class="tiny">Quarters</button>
+      <button id="btnPresets" class="tiny">Presets</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <label><input type="checkbox" id="chkToroidal" checked> Toroidal</label>
+      <label><input type="checkbox" id="chkRainbow"> Rainbow</label>
+      <label><input type="checkbox" id="chkTrends"> Trends</label>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <label><input type="checkbox" id="chkAging"> Aging</label>
+      <label>Birth rate <input type="number" id="inputBR" min="0" max="12" step="1" value="2"></label>
+      <label><input type="checkbox" id="chkRebal"> PopRebal</label>
+      <label>Threshold % <input type="number" id="inputThresh" min="0" max="50" step="1" value="5"></label>
+    </div>
+
+    <div class="divider"></div>
+    <div class="legend">
+      <div class="legend-bar"></div>
+      <span style="color:var(--muted);font-size:12px">white → blue → teal → green → yellow → orange → red</span>
+    </div>
+
+    <div class="divider"></div>
+    <div id="diag" class="diag">FPS: 0 | Gen: 0 | Alive: 0 (0.0%) | Size: 0×0 | History: 0/20</div>
+  </aside>
+
+  <main>
+    <header>
+      <strong>Conway's Game of Life</strong>
+      <span class="pill">Click = draw • Shift+Click = erase • Drag supported</span>
+      <span class="spacer"></span>
+      <span style="color:var(--muted);font-size:12px">Space: Play/Pause • ←/→: Step</span>
+    </header>
+    <canvas id="board"></canvas>
+  </main>
+</div>
 
 <!-- Presets Modal -->
-<div class="modal-backdrop" id="presetsModal">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="presetsTitle">
-    <header><h3 id="presetsTitle">Pattern Presets</h3><button id="btnClosePresets" title="Close">✖</button></header>
-    <div class="content">
-      <div class="pattern-list" id="patternList"></div>
-    </div>
-    <footer><button id="btnCancelPresets">Cancel</button></footer>
+<div class="backdrop" id="modal">
+  <div class="modal">
+    <header>
+      <h3 style="margin:0">Pattern Presets</h3>
+      <button id="btnCloseModal" class="tiny">✕</button>
+    </header>
+    <div id="presetList" class="preset-list"></div>
   </div>
 </div>
 
 <script>
 (()=>{
-const canvas=document.getElementById('board'),ctx=canvas.getContext('2d',{alpha:false});
-const btnPlay=document.getElementById('btnPlay'),btnPause=document.getElementById('btnPause'),btnStepForward=document.getElementById('btnStepForward'),btnStepBack=document.getElementById('btnStepBack');
-const btnFillUp=document.getElementById('btnFillUp'),btnFillDown=document.getElementById('btnFillDown'),btnFillLeft=document.getElementById('btnFillLeft'),btnFillRight=document.getElementById('btnFillRight'),btnFillCenter=document.getElementById('btnFillCenter'),btnFillNW=document.getElementById('btnFillNW'),btnFillNE=document.getElementById('btnFillNE'),btnFillSW=document.getElementById('btnFillSW'),btnFillSE=document.getElementById('btnFillSE');
-const colorPicker=document.getElementById('btnFillColor'),btnClear=document.getElementById('btnClear'),btnResizeFit=document.getElementById('btnResizeFit'),btnPresets=document.getElementById('btnPresets');
-const inputFillPercent=document.getElementById('inputFillPercent'),inputBlockSize=document.getElementById('inputBlockSize'),inputHistoryCap=document.getElementById('inputHistoryCap'),inputRebalThreshold=document.getElementById('inputRebalThreshold'),inputBirthRate=document.getElementById('inputBirthRate');
-const chkToroidal=document.getElementById('chkToroidal'),chkRainbow=document.getElementById('chkRainbow'),chkTrends=document.getElementById('chkTrends'),chkAging=document.getElementById('chkAging'),chkPopRebal=document.getElementById('chkPopRebal');
-const statGeneration=document.getElementById('statGeneration'),statLive=document.getElementById('statLive'),statSize=document.getElementById('statSize'),statTopology=document.getElementById('statTopology'),statLivePct=document.getElementById('statLivePct'),statFPS=document.getElementById('statFPS');
-const boardWrap=document.querySelector('.board-wrap');
-let historyCap=20,rows=0,cols=0,blockSize=15;
-let grid=new Uint8Array(0),nextGrid=new Uint8Array(0);
-let colR=new Uint8Array(0),colG=new Uint8Array(0),colB=new Uint8Array(0),nextR=new Uint8Array(0),nextG=new Uint8Array(0),nextB=new Uint8Array(0);
-let generation=0,running=false,rafId=null,lastTickTime=null,lastFPS=0;
-let history=[],cursor=-1,dragState=null,dirtySinceSnapshot=false;
-const clamp=(v,min,max)=>Math.min(max,Math.max(min,v)),idx=(r,c)=>r*cols+c,fmtPct=p=>(Math.round(p*10)/10).toFixed(1)+'%';
-function setCanvasSizeToGrid(){canvas.width=cols*blockSize;canvas.height=rows*blockSize}
-function computeFitGridDimensions(){const rect=boardWrap.getBoundingClientRect();const w=Math.max(0,Math.floor(rect.width)),h=Math.max(0,Math.floor(rect.height));return {newRows:Math.max(1,Math.floor(h/blockSize)),newCols:Math.max(1,Math.floor(w/blockSize))}}
-function resizeGridToFit(keep=true){const {newRows,newCols}=computeFitGridDimensions();if(newRows===rows&&newCols===cols)return;const newSize=newRows*newCols;const newGrid=new Uint8Array(newSize),nr=new Uint8Array(newSize),ng=new Uint8Array(newSize),nb=new Uint8Array(newSize);if(keep&&grid.length){const cr=Math.min(rows,newRows),cc=Math.min(cols,newCols);for(let r=0;r<cr;r++)for(let c=0;c<cc;c++){const di=r*newCols+c,si=idx(r,c);newGrid[di]=grid[si];nr[di]=colR[si];ng[di]=colG[si];nb[di]=colB[si];}}rows=newRows;cols=newCols;grid=newGrid;nextGrid=new Uint8Array(newSize);colR=nr;colG=ng;colB=nb;nextR=new Uint8Array(newSize);nextG=new Uint8Array(newSize);nextB=new Uint8Array(newSize);setCanvasSizeToGrid();resetHistory();draw();updateStatus()}
-function resetHistory(){history=[];cursor=-1;pushHistorySnapshot();updateHistoryButtons()}
-function enforceHistoryCap(){while(history.length>historyCap){history.shift();cursor=Math.max(0,cursor-1)}updateHistoryButtons()}
-function pushHistorySnapshot(){if(cursor<history.length-1)history=history.slice(0,cursor+1);history.push({grid:grid.slice(0),gen:generation,r:colR.slice(0),g:colG.slice(0),b:colB.slice(0)});enforceHistoryCap();cursor=history.length-1;updateHistoryButtons();dirtySinceSnapshot=false}
-const canStepBack=()=>cursor>0,canStepForwardRedo=()=>cursor<history.length-1;
-function loadHistoryAt(newCursor){if(newCursor<0||newCursor>=history.length)return;cursor=newCursor;const snap=history[cursor];if(snap.grid.length!==grid.length){grid=snap.grid.slice(0);colR=snap.r.slice(0);colG=snap.g.slice(0);colB=snap.b.slice(0);}else{grid.set(snap.grid);colR.set(snap.r);colG.set(snap.g);colB.set(snap.b);}generation=snap.gen;draw();updateStatus();updateHistoryButtons()}
-function updateHistoryButtons(){btnStepBack.disabled=!canStepBack()||running;btnStepForward.disabled=running}
-function setControlsForRunning(isRunning){running=isRunning;btnPlay.disabled=isRunning;btnPause.disabled=!isRunning;updateHistoryButtons()}
-function updateStatus(){const live=countLive();statGeneration.textContent=String(generation);statSize.textContent=cols+'×'+rows;statTopology.textContent=chkToroidal.checked?'Toroidal':'Bounded';statLive.textContent=String(live);const total=rows*cols;pct=total?(live/total)*100:0;statLivePct.textContent=fmtPct(pct);statFPS.textContent=String(Math.round(lastFPS))}
-function countLive(){let n=0;for(let i=0;i<grid.length;i++)n+=grid[i];return n}
-function getFillRGB(){const hex=colorPicker.value;return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)]}
-function neighborCountAndList(r,c){let sum=0;const tor=chkToroidal.checked,list=[];for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;let rr=r+dr,cc=c+dc;if(tor){if(rr<0)rr=rows-1;else if(rr>=rows)rr=0;if(cc<0)cc=cols-1;else if(cc>=cols)cc=0;const alive=grid[idx(rr,cc)];sum+=alive;if(alive)list.push(idx(rr,cc))}else{if(rr<0||rr>=rows||cc<0||cc>=cols)continue;const alive=grid[idx(rr,cc)];sum+=alive;if(alive)list.push(idx(rr,cc))}}return {sum,list}}
-function computeNextGeneration(){for(let i=0;i<nextGrid.length;i++){nextGrid[i]=0;nextR[i]=colR[i];nextG[i]=colG[i];nextB[i]=colB[i]}for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const i=idx(r,c),n=neighborCountAndList(r,c),alive=grid[i]===1;if(alive){nextGrid[i]=(n.sum===2||n.sum===3)?1:0}else if(n.sum===3){nextGrid[i]=1;if(chkRainbow.checked){let ar=0,ag=0,ab=0;for(let k=0;k<3;k++){const j=n.list[k];ar+=colR[j];ag+=colG[j];ab+=colB[j]}nextR[i]=Math.round(ar/3);nextG[i]=Math.round(ag/3);nextB[i]=Math.round(ab/3)}else{const [fr,fg,fb]=getFillRGB();nextR[i]=fr;nextG[i]=fg;nextB[i]=fb}}}}
-function wrapOrBound(r,c){if(chkToroidal.checked){if(r<0)r=rows-1;else if(r>=rows)r=0;if(c<0)c=cols-1;else if(c>=cols)c=0;return {r,c,out:false}}else{if(r<0||r>=rows||c<0||c>=cols)return {r,c,out:true};return {r,c,out:false}}}
-const indexAt=(r,c)=>r*cols+c;
-function ringPositions(ci,rad){const cr=Math.floor(ci/cols),cc=ci%cols,pos=[];for(let dr=-rad;dr<=rad;dr++)for(let dc=-rad;dc<=rad;dc++){if(Math.max(Math.abs(dr),Math.abs(dc))!==rad)continue;let rr=cr+dr,cc2=cc+dc;const wp=wrapOrBound(rr,cc2);if(wp.out)continue;pos.push(indexAt(wp.r,wp.c))}return pos}
-function spawnOneAtIncreasingRadius(ci,empty){const maxR=Math.max(rows,cols);for(let rad=1;rad<=maxR;rad++){const ring=ringPositions(ci,rad);if(!ring.length)continue;const j=ring[(Math.random()*ring.length)|0];if(empty[j])return j}return -1}
-function getLivePct(){const total=rows*cols;return total?(countLive()/total)*100:0}
-function getBR(){const v=Math.floor(Number(inputBirthRate.value));return (!isFinite(v)||v<0)?0:v}
-function agingRespawnCount(){if(!chkAging.checked)return 0;const BR=getBR();if(chkPopRebal.checked){const cur=getLivePct(),target=clamp(parseFloat(inputFillPercent.value),0,100),thr=clamp(parseFloat(inputRebalThreshold.value),0,100);if(cur<target-thr)return BR+1;if(cur>target+thr)return Math.max(0,BR-1);return BR}else return BR}
-function immediateNeighborAverageColorAt(i){const r=Math.floor(i/cols),c=i%cols;const n=neighborCountAndList(r,c);if(n.sum===0)return null;let ar=0,ag=0,ab=0;for(let k=0;k<n.list.length;k++){const j=n.list[k];ar+=colR[j];ag+=colG[j];ab+=colB[j]}return [Math.round(ar/n.list.length),Math.round(ag/n.list.length),Math.round(ab/n.list.length)]}
-function applyAgingIfNeeded(){if(!chkAging.checked)return;if(history.length<Math.max(1,historyCap-1))return;const windowLen=Math.min(historyCap-1,history.length),snaps=[];for(let k=0;k<windowLen;k++)snaps.push(history[cursor-k]);const total=rows*cols,toKill=[];for(let i=0;i<total;i++){if(grid[i]!==1)continue;let all=true;for(let s=0;s<snaps.length;s++){if(snaps[s].grid[i]!==1){all=false;break}}if(all)toKill.push(i)}if(!toKill.length)return;const empty=new Array(total);for(let i=0;i<total;i++)empty[i]=(grid[i]===0);const nResp=agingRespawnCount(),[fr0,fg0,fb0]=getFillRGB();for(const i of toKill){const dR=colR[i],dG=colG[i],dB=colB[i];if(grid[i]===1){grid[i]=0;empty[i]=true}for(let k=0;k<nResp;k++){const j=spawnOneAtIncreasingRadius(i,empty);if(j<0)break;grid[j]=1;if(chkRainbow.checked){const avg=immediateNeighborAverageColorAt(j);if(avg){colR[j]=avg[0];colG[j]=avg[1];colB[j]=avg[2]}else{colR[j]=dR;colG[j]=dG;colB[j]=dB}}else{colR[j]=fr0;colG[j]=fg0;colB[j]=fb0}empty[j]=false}}}
-function stepForwardComputeAndMutations(){computeNextGeneration();let t=grid;grid=nextGrid;nextGrid=t;t=colR;colR=nextR;nextR=t;t=colG;colG=nextG;nextG=t;t=colB;colB=nextB;nextB=t;generation++;applyAgingIfNeeded();draw();updateStatus()}
-function snapshotIfDirty(){if(dirtySinceSnapshot)pushHistorySnapshot()}
-function stepForwardUser(){if(!canStepForwardRedo()){snapshotIfDirty();stepForwardComputeAndMutations();pushHistorySnapshot()}else loadHistoryAt(cursor+1)}
-function stepBackUser(){if(!canStepBack())return;loadHistoryAt(cursor-1)}
-const lerp=(a,b,t)=>a+(b-a)*t,stops=[{p:0,c:[255,255,255]},{p:.15,c:[207,232,255]},{p:.30,c:[0,180,180]},{p:.50,c:[0,192,0]},{p:.75,c:[255,212,0]},{p:1,c:[255,0,0]}];
-function colorFromFrac(f){f=Math.max(0,Math.min(1,f));if(f===0)return'rgb(255,255,255)';for(let i=0;i<stops.length-1;i++){const a=stops[i],b=stops[i+1];if(f>=a.p&&f<=b.p){const t=(f-a.p)/(b.p-a.p),r=Math.round(lerp(a.c[0],b.c[0],t)),g=Math.round(lerp(a.c[1],b.c[1],t)),bb=Math.round(lerp(a.c[2],b.c[2],t));return`rgb(${r},${g},${bb})`}}const last=stops[stops.length-1].c;return`rgb(${last[0]},${last[1]},${last[2]})`}
-function drawTrendsLegend(x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y);g.addColorStop(0,'rgb(255,255,255)');g.addColorStop(.15,'rgb(207,232,255)');g.addColorStop(.30,'rgb(0,180,180)');g.addColorStop(.50,'rgb(0,192,0)');g.addColorStop(.75,'rgb(255,212,0)');g.addColorStop(1,'rgb(255,0,0)');ctx.fillStyle=g;ctx.fillRect(x,y,w,h);ctx.strokeStyle='#333';ctx.strokeRect(x,y,w,h);ctx.fillStyle='#111';ctx.font='10px system-ui,sans-serif';ctx.textBaseline='top';for(const t of [0,25,50,75,100]){const tx=x+Math.round((t/100)*w);ctx.beginPath();ctx.moveTo(tx,y+h);ctx.lineTo(tx,y+h+4);ctx.stroke();const s=String(t)+'%';const tw=ctx.measureText(s).width;ctx.fillText(s,Math.min(Math.max(tx-tw/2,x),x+w-tw),y+h+4)}ctx.fillStyle='#111';ctx.font='11px system-ui,sans-serif';ctx.fillText('Trends',x,y-12)}
-function draw(){const rainbowOn=chkRainbow.checked,wantTrends=chkTrends.checked,known=cursor+1;ctx.clearRect(0,0,canvas.width,canvas.height);if(wantTrends&&known>1){for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const i=idx(r,c);let alive=0;for(let k=0;k<known;k++)alive+=history[cursor-k].grid[i];ctx.fillStyle=colorFromFrac(alive/known);ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize)}drawTrendsLegend(8,canvas.height-8-24,160,10)}else if(rainbowOn){for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const i=idx(r,c);if(grid[i]){ctx.fillStyle=`rgb(${colR[i]},${colG[i]},${colB[i]})`;ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize)}}}else{for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const i=idx(r,c);if(grid[i]){ctx.fillStyle=`rgb(${colR[i]},${colG[i]},${colB[i]})`;ctx.fillRect(c*blockSize,r*blockSize,blockSize,blockSize)}}}if(blockSize>=16){ctx.strokeStyle='#eee';ctx.lineWidth=1;for(let c=0;c<=cols;c++){const x=c*blockSize+.5;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,rows*blockSize);ctx.stroke()}for(let r=0;r<=rows;r++){const y=r*blockSize+.5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cols*blockSize,y);ctx.stroke()}}}
-function randomIndicesInRegion(count,region){const {r0,r1,c0,c1}=region,cells=(r1-r0+1)*(c1-c0+1);count=Math.max(0,Math.min(count,cells));const chosen=new Set();while(chosen.size<count){const rr=r0+((Math.random()*(r1-r0+1))|0),cc=c0+((Math.random()*(c1-c0+1))|0);chosen.add(rr*cols+cc)}return chosen}
-function fillRegionPct(pct,region){const {r0,r1,c0,c1}=region;if(r1<r0||c1<c0)return;const cells=(r1-r0+1)*(c1-c0+1),n=Math.round((pct/100)*cells);if(n<=0)return;const picks=randomIndicesInRegion(n,region),[fr,fg,fb]=getFillRGB();for(const i of picks){grid[i]=1;colR[i]=fr;colG[i]=fg;colB[i]=fb}dirtySinceSnapshot=true}
-function doFillDirectional(which){const pctRaw=parseFloat(inputFillPercent.value),pct=clamp(isFinite(pctRaw)?pctRaw:0,0,100),midR=Math.floor(rows/2),midC=Math.floor(cols/2),regions={up:{r0:0,r1:Math.max(0,midR-1),c0:0,c1:cols-1},down:{r0:midR,r1:rows-1,c0:0,c1:cols-1},left:{r0:0,r1:rows-1,c0:0,c1:Math.max(0,midC-1)},right:{r0:0,r1:rows-1,c0:midC,c1:cols-1},center:{r0:0,r1:rows-1,c0:0,c1:cols-1},nw:{r0:0,r1:Math.max(0,midR-1),c0:0,c1:Math.max(0,midC-1)},ne:{r0:0,r1:Math.max(0,midR-1),c0:midC,c1:cols-1},sw:{r0:midR,r1:rows-1,c0:0,c1:Math.max(0,midC-1)},se:{r0:midR,r1:rows-1,c0:midC,c1:cols-1}};const region=regions[which];if(!region||region.r1<region.r0||region.c1<region.c0)return;pushHistorySnapshot();fillRegionPct(pct,region);draw();updateStatus()}
-function doClear(){grid.fill(0);generation=0;history=[];cursor=-1;lastFPS=0;lastTickTime=null;dirtySinceSnapshot=false;pushHistorySnapshot();draw();updateStatus()}
-function tick(time){if(!running)return;if(lastTickTime!=null){const dt=time-lastTickTime;if(dt>0)lastFPS=1000/dt}lastTickTime=time;stepForwardComputeAndMutations();pushHistorySnapshot();rafId=requestAnimationFrame(tick)}
-function startPlay(){if(running)return;if(rafId)cancelAnimationFrame(rafId);setControlsForRunning(true);rafId=requestAnimationFrame(tick)}
-function pausePlay(){if(!running)return;setControlsForRunning(false);if(rafId){cancelAnimationFrame(rafId);rafId=null}}
-function eventToCell(ev){const rect=canvas.getBoundingClientRect(),x=ev.clientX-rect.left,y=ev.clientY-rect.top,c=Math.floor(x/blockSize),r=Math.floor(y/blockSize);if(r<0||r>=rows||c<0||c>=cols)return null;return {r,c,i:idx(r,c)}}
-function handlePointerDown(ev){const cell=eventToCell(ev);if(!cell)return;const current=grid[cell.i],target=current?0:1;dragState=target;if(grid[cell.i]!==target){grid[cell.i]=target;if(target===1){const [fr,fg,fb]=getFillRGB();colR[cell.i]=fr;colG[cell.i]=fg;colB[cell.i]=fb}dirtySinceSnapshot=true;draw();updateStatus()}window.addEventListener('pointermove',handlePointerMove);window.addEventListener('pointerup',handlePointerUp,{once:true});canvas.setPointerCapture&&canvas.setPointerCapture(ev.pointerId||1)}
-function handlePointerMove(ev){if(dragState===null)return;const cell=eventToCell(ev);if(!cell)return;if(grid[cell.i]!==dragState){grid[cell.i]=dragState;if(dragState===1){const [fr,fg,fb]=getFillRGB();colR[cell.i]=fr;colG[cell.i]=fg;colB[cell.i]=fb}dirtySinceSnapshot=true;draw();updateStatus()}}
-function handlePointerUp(_ev){dragState=null;window.removeEventListener('pointermove',handlePointerMove);if(dirtySinceSnapshot)pushHistorySnapshot()}
-function syncEnabledStates(){const agingOn=chkAging.checked;inputBirthRate.disabled=!agingOn;document.getElementById('birthRateRow').classList.toggle('disabled-field',!agingOn);const popOn=agingOn&&chkPopRebal.checked;inputRebalThreshold.disabled=!popOn;document.getElementById('thresholdRow').classList.toggle('disabled-field',!popOn);chkPopRebal.closest('.checkbox-row').classList.toggle('disabled-field',!agingOn)}
-function init(){blockSize=clamp(parseInt(inputBlockSize.value,10)||15,1,4096);inputBlockSize.value=String(blockSize);historyCap=clamp(parseInt(inputHistoryCap.value,10)||20,1,500);inputHistoryCap.value=String(historyCap);resizeGridToFit(false);const total=rows*cols;if(total>0){const picks=Math.round(0.30*total),chosen=new Set(),[fr,fg,fb]=getFillRGB();while(chosen.size<picks)chosen.add((Math.random()*total)|0);for(const i of chosen){grid[i]=1;colR[i]=fr;colG[i]=fg;colB[i]=fb}}generation=0;lastFPS=0;lastTickTime=null;resetHistory();pushHistorySnapshot();document.getElementById('statTopology').textContent=chkToroidal.checked?'Toroidal':'Bounded';syncEnabledStates();draw();updateStatus()}
-btnPlay.addEventListener('click',startPlay);btnPause.addEventListener('click',pausePlay);btnStepForward.addEventListener('click',()=>{if(!running)stepForwardUser()});btnStepBack.addEventListener('click',()=>{if(!running)stepBackUser()});
-btnFillUp.addEventListener('click',()=>doFillDirectional('up'));btnFillDown.addEventListener('click',()=>doFillDirectional('down'));btnFillLeft.addEventListener('click',()=>doFillDirectional('left'));btnFillRight.addEventListener('click',()=>doFillDirectional('right'));btnFillCenter.addEventListener('click',()=>doFillDirectional('center'));btnFillNW.addEventListener('click',()=>doFillDirectional('nw'));btnFillNE.addEventListener('click',()=>doFillDirectional('ne'));btnFillSW.addEventListener('click',()=>doFillDirectional('sw'));btnFillSE.addEventListener('click',()=>doFillDirectional('se'));
-btnClear.addEventListener('click',()=>{if(!running)doClear()});btnResizeFit.addEventListener('click',()=>{if(!running)resizeGridToFit(true)});
-inputBlockSize.addEventListener('change',()=>{const v=Math.floor(Number(inputBlockSize.value));if(!isFinite(v)||v<1){inputBlockSize.value=String(blockSize);return}blockSize=v;resizeGridToFit(true)});
-inputHistoryCap.addEventListener('change',()=>{const v=Math.floor(Number(inputHistoryCap.value));if(!isFinite(v)||v<1){inputHistoryCap.value=String(historyCap);return}historyCap=clamp(v,1,500);inputHistoryCap.value=String(historyCap);enforceHistoryCap();draw()});
-chkToroidal.addEventListener('change',()=>{updateStatus();draw()});[chkRainbow,chkTrends,chkAging,chkPopRebal].forEach(el=>el.addEventListener('change',()=>{syncEnabledStates();draw()}));
-window.addEventListener('resize',()=>{});canvas.addEventListener('pointerdown',handlePointerDown);
-window.addEventListener('keydown',e=>{const tag=(e.target&&e.target.tagName)||'';const edit=(e.target&&(e.target.isContentEditable||tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'));if(edit)return;if(e.code==='Space'){e.preventDefault();running?pausePlay():startPlay()}else if(e.code==='ArrowLeft'){e.preventDefault();if(!running)stepBackUser()}else if(e.code==='ArrowRight'){e.preventDefault();if(!running)stepForwardUser()}});
+  const $ = s=>document.querySelector(s);
+  const $$ = s=>Array.from(document.querySelectorAll(s));
+  const canvas = $('#board'); const ctx = canvas.getContext('2d',{alpha:false});
 
-// ---- Presets Patterns ----
-const PATTERNS = [
-  // Still Lifes
-  {key:'block', name:'Block', desc:'2×2 still life', coords:[ [0,0],[0,1],[1,0],[1,1] ]},
-  {key:'beehive', name:'Beehive', desc:'6-cell still life', coords:[ [0,1],[0,2],[1,0],[1,3],[2,1],[2,2] ]},
-  {key:'loaf', name:'Loaf', desc:'7-cell still life', coords:[ [0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2] ]},
-  {key:'boat', name:'Boat', desc:'5-cell still life', coords:[ [0,0],[0,1],[1,0],[1,2],[2,1] ]},
+  // --- Options / Defaults (per PRD) ---
+  let blockSize = 15;
+  let historyCap = 20;
+  let running = false;
+  const opts = {
+    toroidal: true,
+    rainbow: false,
+    trends: false,
+    aging: false,
+    rebal: false,
+    BR: 2,
+    thresh: 5,
+    fillPct: 10,
+    fillColor: {r:0,g:123,b:255}
+  };
 
-  // Oscillators
-  {key:'blinker', name:'Blinker', desc:'Period 2', coords:[ [0,-1],[0,0],[0,1] ]},
-  {key:'toad', name:'Toad', desc:'Period 2', coords:[ [0,1],[0,2],[0,3],[1,0],[1,1],[1,2] ]},
-  {key:'beacon', name:'Beacon', desc:'Period 2', coords:[ [0,0],[0,1],[1,0],[2,3],[3,2],[3,3] ]},
-  // (Large) {key:'pulsar', name:'Pulsar', desc:'Period 3 (coming soon)', coords:[], disabled:true},
-  // (Large) {key:'pentadecathlon', name:'Pentadecathlon', desc:'Period 15 (coming soon)', coords:[], disabled:true},
+  // --- Grid state ---
+  let rows=0, cols=0;
+  let grid = new Uint8Array(0);
+  let colors = new Uint32Array(0); // packRGB
+  let generation = 0;
+  let activity = new Uint16Array(0); // for trends
 
-  // Spaceships
-  {key:'glider', name:'Glider', desc:'Spaceship', coords:[ [0,1],[1,2],[2,0],[2,1],[2,2] ]},
-  // (Large) {key:'lwss', name:'LWSS', desc:'Spaceship (coming soon)', coords:[], disabled:true},
-  // (Large) {key:'mwss', name:'MWSS', desc:'Spaceship (coming soon)', coords:[], disabled:true},
-  // (Large) {key:'hwss', name:'HWSS', desc:'Spaceship (coming soon)', coords:[], disabled:true},
+  // --- History with cursor ---
+  let snaps = []; // array of {g:Uint8Array, c:Uint32Array, gen:Number}
+  let cursor = -1;
 
-  // Guns & Engines (large)
-  // (Large) {key:'gosper', name:'Gosper Glider Gun', desc:'Gun (coming soon)', coords:[], disabled:true},
-  // (Large) {key:'simkin', name:'Simkin Glider Gun', desc:'Gun (coming soon)', coords:[], disabled:true},
-  // (Large) {key:'puffer', name:'Puffer Train', desc:'Engine (coming soon)', coords:[], disabled:true},
+  // --- Timing / FPS ---
+  let lastTs = null; let fps = 0;
 
-  // Chaotic / Famous seeds
-  {key:'r_pentomino', name:'R-pentomino', desc:'Chaotic seed (favicon)', coords:[ [0,1],[0,2],[1,0],[1,1],[2,1] ]},
-  {key:'diehard', name:'Diehard', desc:'Finite seed (≈130 gens)', coords:[ [0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7] ]},
-  {key:'acorn', name:'Acorn', desc:'7-cell tiny seed', coords:[ [0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6] ]},
-];
+  // --- UI bindings ---
+  const btnPlay=$('#btnPlay'), btnPause=$('#btnPause'),
+        btnStepF=$('#btnStepForward'), btnStepB=$('#btnStepBack'),
+        btnClear=$('#btnClear'), btnResize=$('#btnResize'),
+        btnColor=$('#btnColor'), inputBlock=$('#inputBlock'),
+        inputFillPct=$('#inputFillPct'), chkToroidal=$('#chkToroidal'),
+        chkRainbow=$('#chkRainbow'), chkTrends=$('#chkTrends'),
+        chkAging=$('#chkAging'), inputBR=$('#inputBR'),
+        chkRebal=$('#chkRebal'), inputThresh=$('#inputThresh'),
+        btnQuarters=$('#btnQuarters'), btnPresets=$('#btnPresets');
 
-function openPresets(){
-  const modal = document.getElementById('presetsModal');
-  const list = document.getElementById('patternList');
-  list.innerHTML = '';
-  // Grouping headings
-  const sections = [
-    {title:'Still Lifes', keys:['block','beehive','loaf','boat']},
-    {title:'Oscillators', keys:['blinker','toad','beacon','pulsar','pentadecathlon']},
-    {title:'Spaceships', keys:['glider','lwss','mwss','hwss']},
-    {title:'Guns & Engines', keys:['gosper','simkin','puffer']},
-    {title:'Chaotic / Famous Seeds', keys:['r_pentomino','diehard','acorn']},
+  // --- Helpers ---
+  const idx = (r,c)=>r*cols+c;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const packRGB=(r,g,b)=>(255<<24)|(b<<16)|(g<<8)|(r);
+  const unpack=(u)=>`rgb(${u&255},${(u>>8)&255},${(u>>16)&255})`;
+  const rand=(n)=>Math.floor(Math.random()*n);
+
+  function setCanvas(){
+    const dpr = Math.max(1, window.devicePixelRatio||1);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width*dpr);
+    canvas.height = Math.floor((window.innerHeight - canvas.getBoundingClientRect().top)*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    fitGrid();
+  }
+
+  function fitGrid(){
+    const dpr = Math.max(1, window.devicePixelRatio||1);
+    const newCols = Math.max(2, Math.floor(canvas.width/(blockSize*dpr)));
+    const newRows = Math.max(2, Math.floor(canvas.height/(blockSize*dpr)));
+    if (newCols===cols && newRows===rows) return;
+    cols=newCols; rows=newRows;
+    grid = new Uint8Array(rows*cols);
+    colors = new Uint32Array(rows*cols);
+    activity = new Uint16Array(rows*cols);
+    // initial random 30%
+    randomFill('c',30);
+    generation=0;
+    snaps=[]; cursor=-1;
+    pushSnap();
+    recalcActivity();
+    draw();
+    updateDiag();
+  }
+
+  function updateDiag(){
+    const alive = grid.reduce((a,b)=>a+b,0);
+    const pct = (alive*100/(rows*cols))||0;
+    $('#diag').textContent = `FPS: ${fps.toFixed(1)} | Gen: ${generation} | Alive: ${alive} (${pct.toFixed(1)}%) | Size: ${cols}×${rows} | History: ${cursor+1}/${historyCap}`;
+  }
+  function updateButtons(){
+    btnStepB.disabled = cursor<=0 || running;
+    btnStepF.disabled = running?false:false; // allow stepping even at tip (computes new)
+  }
+
+  // --- History management ---
+  function pushSnap(){
+    // truncate redo if not at tip
+    if (cursor < snaps.length-1) snaps = snaps.slice(0,cursor+1);
+    snaps.push({ g: Uint8Array.from(grid), c: Uint32Array.from(colors), gen: generation });
+    // enforce cap
+    while (snaps.length > historyCap){ snaps.shift(); cursor=Math.max(0,cursor-1); }
+    cursor = snaps.length-1;
+    updateButtons();
+  }
+  function loadSnap(i){
+    if (i<0 || i>=snaps.length) return;
+    cursor = i;
+    const S = snaps[cursor];
+    grid = Uint8Array.from(S.g);
+    colors = Uint32Array.from(S.c);
+    generation = S.gen;
+    recalcActivity();
+    draw();
+    updateDiag();
+    updateButtons();
+  }
+
+  // --- Trends activity recompute ---
+  function recalcActivity(){
+    activity.fill(0);
+    const start = Math.max(0, (cursor+1) - historyCap);
+    for (let h=start; h<=cursor; h++){
+      const S = snaps[h];
+      for (let i=0;i<S.g.length;i++){ if (S.g[i]===1) activity[i]++; }
+    }
+  }
+
+  // --- Drawing ---
+  let showQuarters = false;
+  function draw(){
+    ctx.fillStyle='#0b0c10'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const b = blockSize;
+    const trends = opts.trends;
+    const rainbow = opts.rainbow;
+    const windowKnown = (cursor>=0)? (cursor - Math.max(0,(cursor+1)-historyCap) + 1) : 0;
+
+    for (let r=0;r<rows;r++){
+      for (let c=0;c<cols;c++){
+        const i = idx(r,c);
+        let fill = null;
+        if (trends && windowKnown>0){
+          const frac = activity[i]/windowKnown;
+          fill = trendColor(frac);
+        } else if (grid[i]===1){
+          const u = colors[i] || packRGB(opts.fillColor.r, opts.fillColor.g, opts.fillColor.b);
+          fill = unpack(u); // non-rainbow shows stored colors as well
+        }
+        if (fill){
+          ctx.fillStyle=fill;
+          ctx.fillRect(c*b,r*b,b,b);
+        }
+      }
+    }
+    // optional quarters overlay
+    if (showQuarters){
+      ctx.strokeStyle='rgba(255,255,255,0.12)';
+      ctx.beginPath();
+      ctx.moveTo((cols*b)/2,0); ctx.lineTo((cols*b)/2,rows*b);
+      ctx.moveTo(0,(rows*b)/2); ctx.lineTo(cols*b,(rows*b)/2);
+      ctx.stroke();
+    }
+    // faint grid if blocks large
+    if (b>=16){
+      ctx.strokeStyle='rgba(255,255,255,0.04)';
+      for (let x=0;x<=cols;x++){ ctx.beginPath(); ctx.moveTo(x*b,0); ctx.lineTo(x*b,rows*b); ctx.stroke(); }
+      for (let y=0;y<=rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*b); ctx.lineTo(cols*b,y*b); ctx.stroke(); }
+    }
+    // on-canvas legend for trends
+    if (trends){
+      drawLegendCanvas(8, Math.max(8, rows*b - 30), 160, 10);
+    }
+  }
+  function trendColor(frac){
+    const stops = [
+      {r:255,g:255,b:255},
+      {r:179,g:229,b:255},
+      {r:71,g:215,b:255},
+      {r:28,g:203,b:170},
+      {r:140,g:233,b:28},
+      {r:255,g:229,b:77},
+      {r:255,g:122,b:69},
+      {r:255,g:31,b:31}
+    ];
+    const t = clamp(frac,0,1)*(stops.length-1);
+    const i = Math.floor(t), j=Math.min(stops.length-1,i+1), f=t-i;
+    const a=stops[i], b=stops[j];
+    const rr=Math.round(a.r+(b.r-a.r)*f), gg=Math.round(a.g+(b.g-a.g)*f), bb=Math.round(a.b+(b.b-a.b)*f);
+    return `rgb(${rr},${gg},${bb})`;
+  }
+  function drawLegendCanvas(x,y,w,h){
+    const g=ctx.createLinearGradient(x,y,x+w,y);
+    g.addColorStop(0,'#ffffff'); g.addColorStop(.14,'#b3e5ff'); g.addColorStop(.28,'#47d7ff');
+    g.addColorStop(.42,'#1ccbaa'); g.addColorStop(.56,'#8ce91c'); g.addColorStop(.7,'#ffe54d');
+    g.addColorStop(.85,'#ff7a45'); g.addColorStop(1,'#ff1f1f');
+    ctx.fillStyle=g; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#333'; ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='#e8ecf1'; ctx.font='10px system-ui,sans-serif';
+    ['0%','25%','50%','75%','100%'].forEach((t,ix)=>{
+      const tx=x+Math.round((ix*0.25)*w);
+      ctx.fillText(t, tx-8,y+h+10);
+    });
+  }
+
+  // --- Simulation ---
+  const nbr=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  const inside=(r,c)=>r>=0&&r<rows&&c>=0&&c<cols;
+  function wrap(r,c){
+    if (opts.toroidal){ r=(r+rows)%rows; c=(c+cols)%cols; return [r,c]; }
+    if (!inside(r,c)) return null; return [r,c];
+  }
+
+  function stepOnce(){
+    const next = new Uint8Array(rows*cols);
+    const nextC = new Uint32Array(rows*cols);
+    // measure alive%
+    let aliveCount=0; for (let i=0;i<grid.length;i++) if (grid[i]===1) aliveCount++;
+    const alivePct = (aliveCount*100)/(rows*cols);
+    const low = opts.fillPct - opts.thresh, high = opts.fillPct + opts.thresh;
+    let birthsNeedTwo=false, surviveRequireAtLeast3=false;
+    if (opts.rebal && opts.aging){
+      if (alivePct < low) birthsNeedTwo = true;
+      else if (alivePct > high) surviveRequireAtLeast3 = true;
+    }
+    // compute births/survivals
+    for (let r=0;r<rows;r++){
+      for (let c=0;c<cols;c++){
+        let n=0, ar=0,ag=0,ab=0, cnt=0;
+        for (const [dr,dc] of nbr){
+          const pos=wrap(r+dr,c+dc); if(!pos) continue;
+          const [rr,cc]=pos; const k=idx(rr,cc);
+          if (grid[k]===1){ n++; const u=colors[k]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+            ar+=(u&255); ag+=((u>>8)&255); ab+=((u>>16)&255); cnt++; }
+        }
+        const i=idx(r,c);
+        if (grid[i]===1){
+          let live = (n===2||n===3);
+          if (surviveRequireAtLeast3) live = (n>=3);
+          if (live){ next[i]=1; nextC[i]=colors[i]; }
+        }else{
+          let born=(n===3);
+          if (birthsNeedTwo) born=(n===2||n===3);
+          if (born){
+            next[i]=1;
+            if (opts.rainbow && cnt>0){
+              nextC[i]=packRGB(Math.round(ar/cnt),Math.round(ag/cnt),Math.round(ab/cnt));
+            }else{
+              nextC[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+            }
+          }
+        }
+      }
+    }
+
+    // Aging
+    if (opts.aging){
+      // Only if history window full
+      if (cursor+1 >= historyCap){
+        // Count across last (historyCap) snapshots
+        const start = (cursor+1)-historyCap;
+        const aliveCounts = new Uint16Array(rows*cols);
+        for (let h=start; h<=cursor; h++){
+          const S = snaps[h];
+          for (let i=0;i<S.g.length;i++) if (S.g[i]===1) aliveCounts[i]++;
+        }
+        const toSpawn=[];
+        for (let i=0;i<next.length;i++){
+          if (next[i]===1 && aliveCounts[i]===historyCap){
+            // dies of age
+            const r=Math.floor(i/cols), c=i%cols;
+            const inherit = colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+            next[i]=0; // kill
+            // compute spawns count
+            let spawns=opts.BR;
+            if (opts.rebal){
+              if (alivePct<low) spawns=opts.BR+1;
+              else if (alivePct>high) spawns=Math.max(0,opts.BR-1);
+              else spawns=opts.BR;
+            }
+            toSpawn.push({r,c,spawns,inherit});
+          }
+        }
+        for (const t of toSpawn){
+          for (let s=0;s<t.spawns;s++){
+            const p=findRadialEmpty(t.r,t.c,next);
+            if (!p) break;
+            const [rr,cc]=p, k=idx(rr,cc);
+            next[k]=1;
+            // color average of immediate neighbors else dying color
+            const nc = neighborColorAvg(rr,cc,next,nextC);
+            if (nc){ nextC[k]=packRGB(nc.r,nc.g,nc.b); } else { nextC[k]=t.inherit; }
+          }
+        }
+      }
+    }
+
+    grid = next; colors = nextC; generation++;
+  }
+
+  function neighborColorAvg(r,c,aliveArr,colorArr){
+    let rr=0,gg=0,bb=0,count=0;
+    for (const [dr,dc] of nbr){
+      const pos=wrap(r+dr,c+dc); if(!pos) continue;
+      const [r2,c2]=pos; const i=idx(r2,c2);
+      if (aliveArr[i]===1){ const u=colorArr[i]||colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+        rr+=(u&255); gg+=((u>>8)&255); bb+=((u>>16)&255); count++; }
+    }
+    if (count===0) return null;
+    return {r:Math.round(rr/count), g:Math.round(gg/count), b:Math.round(bb/count)};
+  }
+
+  function findRadialEmpty(r,c,state){
+    const maxR=Math.max(rows,cols);
+    for (let d=1; d<=maxR; d++){
+      const ring=[];
+      for (let rr=r-d; rr<=r+d; rr++){
+        for (let cc=c-d; cc<=c+d; cc++){
+          if (rr===r-d || rr===r+d || cc===c-d || cc===c+d){
+            const pos=wrap(rr,cc); if(!pos) continue; ring.push(pos);
+          }
+        }
+      }
+      // shuffle
+      for (let i=ring.length-1;i>0;i--){ const j=rand(i+1); const tmp=ring[i]; ring[i]=ring[j]; ring[j]=tmp; }
+      for (const [rr,cc] of ring){
+        const k=idx(rr,cc); if (state[k]!==1) return [rr,cc];
+      }
+    }
+    return null;
+  }
+
+  // --- Fill ---
+  function regionPred(code){
+    const hr=Math.floor(rows/2), hc=Math.floor(cols/2);
+    switch(code){
+      case 'c': return (r,c)=>true;
+      case 'u': return (r,c)=>r<hr;
+      case 'd': return (r,c)=>r>=hr;
+      case 'l': return (r,c)=>c<hc;
+      case 'r': return (r,c)=>c>=hc;
+      case 'ul': return (r,c)=>r<hr && c<hc;
+      case 'ur': return (r,c)=>r<hr && c>=hc;
+      case 'dl': return (r,c)=>r>=hr && c<hc;
+      case 'dr': return (r,c)=>r>=hr && c>=hc;
+    }
+    return (r,c)=>true;
+  }
+  function randomFill(code,pct){
+    pct=clamp(pct,0,100);
+    const include=regionPred(code);
+    const pool=[];
+    for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) if (include(r,c)) pool.push(idx(r,c));
+    let n=Math.floor(pool.length*(pct/100));
+    while (n>0 && pool.length>0){
+      const j=rand(pool.length); const i=pool[j];
+      grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+      pool[j]=pool[pool.length-1]; pool.pop(); n--;
+    }
+  }
+
+  // --- Mouse draw ---
+  let drawing=false, drawState=1;
+  canvas.addEventListener('mousedown',(e)=>{
+    const p=toCell(e); if(!p) return;
+    drawing=true; drawState = e.shiftKey?0:1; applyDraw(p.r,p.c,drawState);
+  });
+  window.addEventListener('mouseup',()=>{ if(drawing){ drawing=false; pushSnap(); updateButtons(); updateDiag(); } });
+  canvas.addEventListener('mousemove',(e)=>{ if(!drawing) return; const p=toCell(e); if(!p) return; applyDraw(p.r,p.c,drawState); });
+  function toCell(e){
+    const rect=canvas.getBoundingClientRect();
+    const c=Math.floor((e.clientX-rect.left)/blockSize);
+    const r=Math.floor((e.clientY-rect.top)/blockSize);
+    if (r<0||r>=rows||c<0||c>=cols) return null; return {r,c};
+  }
+  function applyDraw(r,c,state){
+    const i=idx(r,c);
+    grid[i]=state;
+    if (state===1) colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+    draw(); updateDiag();
+  }
+
+  // --- Keyboard ---
+  window.addEventListener('keydown',(e)=>{
+    const tag=(e.target&&e.target.tagName)||'';
+    if (tag==='INPUT' || tag==='TEXTAREA' || e.target.isContentEditable) return;
+    if (e.code==='Space'){ e.preventDefault(); running=!running; if(running) cursor=snaps.length-1; updateButtons(); }
+    else if (e.code==='ArrowRight'){ e.preventDefault(); stepForward(); }
+    else if (e.code==='ArrowLeft'){ e.preventDefault(); stepBack(); }
+  });
+
+  // --- Buttons ---
+  btnPlay.addEventListener('click',()=>{ running=true; cursor=snaps.length-1; updateButtons(); });
+  btnPause.addEventListener('click',()=>{ running=false; updateButtons(); });
+  btnStepForward.addEventListener('click',()=>stepForward());
+  btnStepBack.addEventListener('click',()=>stepBack());
+  btnClear.addEventListener('click',()=>{
+    grid.fill(0); colors.fill(0); generation=0; snaps=[]; cursor=-1; pushSnap(); recalcActivity(); draw(); updateDiag();
+  });
+  btnResize.addEventListener('click',()=>{ const v=parseInt(inputBlock.value,10); if (isFinite(v)&&v>0){ blockSize=v; setCanvas(); }});
+  chkToroidal.addEventListener('change',e=>{ opts.toroidal=e.target.checked; draw(); });
+  chkRainbow.addEventListener('change',e=>{ opts.rainbow=e.target.checked; draw(); });
+  chkTrends.addEventListener('change',e=>{ opts.trends=e.target.checked; draw(); });
+  chkAging.addEventListener('change',e=>{ opts.aging=e.target.checked; inputBR.disabled=!opts.aging; chkRebal.disabled=!opts.aging; inputThresh.disabled=!(opts.aging && opts.rebal); });
+  inputBR.addEventListener('input',e=>{ const v=parseInt(e.target.value,10); opts.BR=clamp(isFinite(v)?v:2,0,12); e.target.value=opts.BR; });
+  chkRebal.addEventListener('change',e=>{ opts.rebal=e.target.checked; inputThresh.disabled=!(opts.aging && opts.rebal); });
+  inputThresh.addEventListener('input',e=>{ const v=parseInt(e.target.value,10); opts.thresh=clamp(isFinite(v)?v:5,0,50); e.target.value=opts.thresh; });
+  inputFillPct.addEventListener('input',e=>{ const v=parseInt(e.target.value,10); opts.fillPct=clamp(isFinite(v)?v:10,0,100); e.target.value=opts.fillPct; });
+
+  btnColor.addEventListener('click',()=>{
+    const picker=document.createElement('input'); picker.type='color'; picker.value=rgbToHex(opts.fillColor);
+    picker.style.position='fixed'; picker.style.left='-9999px'; document.body.appendChild(picker);
+    picker.addEventListener('input',()=>{ opts.fillColor=hexToRgb(picker.value); btnColor.style.background=picker.value; });
+    picker.addEventListener('change',()=>{ opts.fillColor=hexToRgb(picker.value); btnColor.style.background=picker.value; picker.remove(); });
+    picker.click();
+  });
+
+  btnQuarters.addEventListener('click',()=>{ showQuarters=!showQuarters; draw(); });
+
+  $$('.grid3 button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const code=b.getAttribute('data-fill');
+      randomFill(code, parseInt(inputFillPct.value,10)||0);
+      pushSnap(); recalcActivity(); draw(); updateDiag();
+    });
+  });
+
+  // --- Step navigation ---
+  function stepForward(){
+    if (cursor < snaps.length-1){
+      loadSnap(cursor+1);
+    } else {
+      // compute new generation at tip
+      const t0=performance.now();
+      stepOnce();
+      const t1=performance.now();
+      const dt=(t1-(lastTs||t0))/1000; if (dt>0) fps = 1/((t1-t0)/1000);
+      pushSnap(); recalcActivity(); draw(); updateDiag();
+      lastTs=t1;
+    }
+  }
+  function stepBack(){ if (cursor>0) loadSnap(cursor-1); }
+
+  // --- RAF loop ---
+  function loop(ts){
+    if (running){
+      if (cursor<snaps.length-1){ // if user stepped back and hit play, snap to tip first
+        loadSnap(snaps.length-1);
+      }
+      const t0=performance.now();
+      stepOnce();
+      const t1=performance.now();
+      fps = 1/((t1-t0)/1000);
+      pushSnap(); recalcActivity(); draw(); updateDiag();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // --- Presets ---
+  const modal=$('#modal'), list=$('#presetList'), btnCloseModal=$('#btnCloseModal');
+  btnPresets.addEventListener('click',()=>{ buildPresetList(); modal.style.display='flex'; });
+  btnCloseModal.addEventListener('click',()=>{ modal.style.display='none'; });
+  modal.addEventListener('click',e=>{ if(e.target===modal) modal.style.display='none'; });
+
+  function buildPresetList(){
+    list.innerHTML='';
+    PRESETS.forEach(p=>{
+      const card=document.createElement('div'); card.className='card';
+      const h=document.createElement('h4'); h.textContent=p.name; card.appendChild(h);
+      const sm=document.createElement('small'); sm.textContent=p.desc||''; card.appendChild(sm);
+      const btn=document.createElement('button'); btn.className='tiny'; btn.textContent='Insert';
+      btn.addEventListener('click',()=>{ insertPreset(p); modal.style.display='none'; });
+      card.appendChild(btn); list.appendChild(card);
+    });
+  }
+
+  function insertPreset(pat){
+    // clear board & history
+    grid.fill(0); colors.fill(0); generation=0; snaps=[]; cursor=-1;
+    let cells=[];
+    if (pat.type==='coords') cells = pat.cells;
+    else if (pat.type==='rle') cells = parseRLE(pat.rle);
+    else if (pat.type==='func') cells = pat.build();
+    if (cells.length){
+      const minR=Math.min(...cells.map(x=>x[0])), maxR=Math.max(...cells.map(x=>x[0]));
+      const minC=Math.min(...cells.map(x=>x[1])), maxC=Math.max(...cells.map(x=>x[1]));
+      const h=maxR-minR+1, w=maxC-minC+1;
+      const offR = Math.floor((rows-h)/2)-minR;
+      const offC = Math.floor((cols-w)/2)-minC;
+      for (const [r,c] of cells){
+        const rr=clamp(r+offR,0,rows-1), cc=clamp(c+offC,0,cols-1);
+        const i=idx(rr,cc); grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+      }
+    }
+    pushSnap(); recalcActivity(); draw(); updateDiag();
+  }
+
+  // Simple RLE parser
+  function parseRLE(rle){
+    const lines = rle.split(/\r?\n/).map(s=>s.trim()).filter(s=>s && !s.startsWith('#'));
+    // strip header
+    if (/^x\s*=\s*\d+/.test(lines[0])) lines.shift();
+    const data = lines.join('').replace(/\s+/g,'');
+    const out=[]; let r=0,c=0, num='';
+    for (let i=0;i<data.length;i++){
+      const ch=data[i];
+      if (/\d/.test(ch)){ num+=ch; continue; }
+      const n = num?parseInt(num,10):1; num='';
+      if (ch==='b'){ c+=n; }
+      else if (ch==='o'){ for(let k=0;k<n;k++) out.push([r,c+k]); c+=n; }
+      else if (ch==='$'){ r+=n; c=0; }
+      else if (ch==='!'){ break; }
+    }
+    return out;
+  }
+
+  const PRESETS=[
+    // Still lifes
+    {name:'Block', desc:'Still life', type:'coords', cells:[[0,0],[0,1],[1,0],[1,1]]},
+    {name:'Beehive', desc:'Still life', type:'coords', cells:[[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]]},
+    {name:'Loaf', desc:'Still life', type:'coords', cells:[[0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2]]},
+    {name:'Boat', desc:'Still life', type:'coords', cells:[[0,0],[0,1],[1,0],[1,2],[2,1]]},
+    // Oscillators
+    {name:'Blinker', desc:'p2 oscillator', type:'coords', cells:[[0,0],[0,1],[0,2]]},
+    {name:'Toad', desc:'p2 oscillator', type:'coords', cells:[[1,0],[1,1],[1,2],[0,1],[0,2],[0,3]]},
+    {name:'Beacon', desc:'p2 oscillator', type:'coords', cells:[[0,0],[0,1],[1,0],[2,3],[3,2],[3,3]]},
+    {name:'Pulsar', desc:'p3 oscillator (RLE)', type:'rle', rle:`x = 13, y = 13, rule = B3/S23
+2b3o3b3o2$o4bobo4bo$o4bobo4bo$o4bobo4bo$2b3o3b3o2$2b3o3b3o$o4bobo4bo$o
+4bobo4bo$o4bobo4bo2$2b3o3b3o!`},
+    {name:'Pentadecathlon', desc:'p15 oscillator (RLE)', type:'rle', rle:`x = 10, y = 3, rule = B3/S23
+2bo4bo$2ob4ob2o$2bo4bo!`},
+    // Spaceships
+    {name:'Glider', desc:'Spaceship', type:'coords', cells:[[0,2],[1,0],[1,2],[2,1],[2,2]]},
+    {name:'LWSS', desc:'Lightweight spaceship', type:'coords', cells:[[0,1],[0,4],[1,0],[2,0],[2,4],[3,0],[3,1],[3,2],[3,3],[3,4]]},
+    // Guns
+    {name:'Gosper Glider Gun', desc:'p30 gun (RLE)', type:'rle', rle:`x = 36, y = 9, rule = B3/S23
+24bo$22bobo$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o$2o8bo3bob2o4bobo$10bo5bo7bo$11bo3bo$12b2o!`},
+    // Chaotic seeds
+    {name:'R-pentomino', desc:'Methuselah', type:'coords', cells:[[0,1],[0,2],[1,0],[1,1],[2,1]]},
+    {name:'Diehard', desc:'Methuselah', type:'coords', cells:[[0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7]]},
+    {name:'Acorn', desc:'Methuselah', type:'coords', cells:[[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]]},
   ];
-  for(const sec of sections){
-    const h = document.createElement('h4'); h.textContent = sec.title; list.appendChild(h);
-    for(const key of sec.keys){
-      const p = PATTERNS.find(x=>x.key===key);
-      if(!p){ const div = document.createElement('div'); div.className='pattern-item disabled'; div.innerHTML = `<span>${key}</span><small>coming soon</small>`; list.appendChild(div); continue; }
-      const div = document.createElement('div'); div.className='pattern-item'+(p.disabled?' disabled':'');
-      const left = document.createElement('div'); left.innerHTML = `<strong>${p.name}</strong><br><small>${p.desc}</small>`;
-      const btn = document.createElement('button'); btn.textContent = p.disabled?'Coming soon':'Load';
-      btn.disabled = !!p.disabled;
-      btn.addEventListener('click', ()=>{ applyPreset(p); closePresets(); });
-      div.appendChild(left); div.appendChild(btn); list.appendChild(div);
-    }
+
+  // --- Start ---
+  function init(){
+    inputBlock.value=String(blockSize);
+    inputBR.disabled=!opts.aging; chkRebal.disabled=!opts.aging; inputThresh.disabled=!(opts.aging&&opts.rebal);
+    btnColor.style.background = `rgb(${opts.fillColor.r},${opts.fillColor.g},${opts.fillColor.b})`;
+    window.addEventListener('resize', setCanvas);
+    setCanvas();
+    requestAnimationFrame(loop);
   }
-  modal.style.display='flex';
-}
-function closePresets(){ document.getElementById('presetsModal').style.display='none'; }
+  function rgbToHex({r,g,b}){ const hh=v=>('0'+v.toString(16)).slice(-2); return `#${hh(r)}${hh(g)}${hh(b)}`;}
+  function hexToRgb(hex){ const v=parseInt(hex.slice(1),16); return {r:(v>>16)&255,g:(v>>8)&255,b:v&255}; }
 
-function centerOffset(pattern){
-  // Compute bounding box of coords
-  let minR=Infinity,minC=Infinity,maxR=-Infinity,maxC=-Infinity;
-  for(const [dr,dc] of pattern.coords){
-    if(dr<minR)minR=dr; if(dc<minC)minC=dc;
-    if(dr>maxR)maxR=dr; if(dc>maxC)maxC=dc;
-  }
-  const h = maxR - minR + 1, w = maxC - minC + 1;
-  const offR = Math.max(0, Math.floor((rows - h)/2) - minR);
-  const offC = Math.max(0, Math.floor((cols - w)/2) - minC);
-  return {r:offR, c:offC};
-}
-
-function clearBoardOnly(){
-  grid.fill(0);
-  colR.fill(0); colG.fill(0); colB.fill(0);
-  generation = 0;
-  draw();
-  updateStatus();
-}
-
-function applyPreset(pat){
-  // 1) Clear board and history
-  clearBoardOnly();
-  history = []; cursor = -1; lastFPS=0; lastTickTime=null; dirtySinceSnapshot=false;
-  // 2) Place pattern centered
-  const off = centerOffset(pat);
-  const [fr,fg,fb] = getFillRGB();
-  for(const [dr,dc] of pat.coords){
-    const r = off.r + dr, c = off.c + dc;
-    if(r>=0 && r<rows && c>=0 && c<cols){
-      const i = idx(r,c);
-      grid[i]=1; colR[i]=fr; colG[i]=fg; colB[i]=fb;
-    }
-  }
-  // 3) Reset generation and snapshot
-  generation = 0;
-  pushHistorySnapshot();
-  draw();
-  updateStatus();
-}
-
-// Wire modal events
-document.getElementById('btnPresets').addEventListener('click', ()=>{
-  if(running) pausePlay();
-  openPresets();
-});
-document.getElementById('btnClosePresets').addEventListener('click', closePresets);
-document.getElementById('btnCancelPresets').addEventListener('click', closePresets);
-document.getElementById('presetsModal').addEventListener('click', (e)=>{
-  if(e.target.id==='presetsModal') closePresets();
-});
-
-init();
-})();
-</script></body></html>
+  init();
+})();</script>
+</body>
+</html>

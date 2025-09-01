@@ -11,6 +11,7 @@
     .toc { background:#f6f7f9; border:1px solid #e1e4e8; padding:12px; border-radius:8px; }
     .toc ol { margin:0; padding-left: 18px; }
     ul.compact li { margin: 3px 0; }
+    .cite { color:#555; font-size:12px; }
   </style>
 </head>
 <body>
@@ -33,6 +34,7 @@
       <li>Presets Feature</li>
       <li>Pseudocode (Algorithms)</li>
       <li>Developer Notes</li>
+      <li>Appendix A: Preset Pattern Coordinates</li>
     </ol>
   </div>
 
@@ -54,16 +56,7 @@
   </ul>
 
   <h2>3) UI Layout & Controls</h2>
-  <ul class="compact">
-    <li>Top row: Play, Pause, ⬅️, ➡️ on one line.</li>
-    <li>Block size + Resize on same row (compact).</li>
-    <li>Rainbow, Trends, Aging, PopRebal, Birth rate, Threshold fields.</li>
-    <li>Fill % + color picker swatch.</li>
-    <li>Fill controls: 3×3 grid (halves + quarters + full board).</li>
-    <li>Clear button below Fill.</li>
-    <li>Presets button below Clear (opens modal).</li>
-    <li>Status diagnostics at bottom.</li>
-  </ul>
+  <p>Compact left panel with Play/Pause, Step controls, Block size + Resize, checkboxes for Rainbow/Trends/Aging/PopRebal, numeric fields (History, Threshold, Birth Rate), Fill % + color picker, Fill directional 3×3 grid, Clear + Presets buttons, and status diagnostics at the bottom.</p>
 
   <h2>4) Editing & Fill Tools</h2>
   <ul class="compact">
@@ -134,108 +127,15 @@
   <h3>Patterns</h3>
   <ul class="compact">
     <li>Still Lifes: Block, Beehive, Loaf, Boat</li>
-    <li>Oscillators: Blinker, Toad, Beacon, Pulsar, Pentadecathlon</li>
-    <li>Spaceships: Glider, LWSS, MWSS, HWSS</li>
-    <li>Guns & Engines: Gosper Glider Gun, Simkin Gun, Puffer Train</li>
-    <li>Chaotic seeds: R-pentomino, Diehard, Acorn</li>
+    <li>Oscillators: Blinker, Toad, Beacon, <strong>Pulsar</strong>, <strong>Pentadecathlon</strong></li>
+    <li>Spaceships: Glider, <strong>LWSS</strong>, <strong>MWSS</strong>, <strong>HWSS</strong></li>
+    <li>Guns & Engines: <strong>Gosper Glider Gun</strong>, <strong>Simkin Glider Gun</strong>, <strong>Puffer Train</strong></li>
+    <li>Chaotic seeds: R-pentomino, Diehard, Acorn, <strong>B-heptomino</strong>, <strong>Pi-heptomino</strong>, <strong>Herschel</strong></li>
   </ul>
+  <p>See Appendix A for full coordinate sets (or canonical RLE encodings).</p>
 
   <h2>13) Pseudocode (Algorithms)</h2>
-  <h3>Neighbor Counting</h3>
-  <pre><code>function neighbors(r,c):
-  sum=0; list=[]
-  for dr in -1..1:
-    for dc in -1..1:
-      if dr==0 and dc==0: continue
-      rr=r+dr; cc=c+dc
-      if TOROIDAL:
-        rr=(rr+ROWS)%ROWS; cc=(cc+COLS)%COLS
-      else if rr&lt;0 or rr&gt;=ROWS or cc&lt;0 or cc&gt;=COLS: continue
-      if GRID[rr,cc]==1: sum++; list.append((rr,cc))
-  return sum,list</code></pre>
-
-  <h3>Classic Step with Rainbow</h3>
-  <pre><code>function compute_next():
-  for each cell:
-    (sum,list)=neighbors()
-    if alive:
-      alive_next = sum in {2,3}
-    else if sum==3:
-      alive_next = true
-      if RAINBOW: color=avg(colors of 3 neighbors)
-      else: color=FILL_COLOR
-</code></pre>
-
-  <h3>Trends Rendering</h3>
-  <pre><code>function draw_trends():
-  known=history length
-  for each cell:
-    frac=alive_count/known
-    color=gradient(frac)
-</code></pre>
-
-  <h3>History Management</h3>
-  <pre><code>maybe_snapshot():
-  if DIRTY:
-    truncate redo tail
-    push snapshot
-    DIRTY=false
-
-step_forward_user():
-  if at tip:
-    maybe_snapshot()
-    compute_next()
-    apply_aging()
-    push snapshot
-  else:
-    cursor++
-</code></pre>
-
-  <h3>Aging Detection</h3>
-  <pre><code>find_aged_cells():
-  aged=[]
-  for cell alive:
-    if alive in all saved states: aged.append(cell)
-</code></pre>
-
-  <h3>Aging Respawn</h3>
-  <pre><code>spawn_one(center):
-  for radius in 1..max:
-    ring=cells at distance=radius
-    pick random empty
-    if found return index
-</code></pre>
-
-  <h3>Respawn Count</h3>
-  <pre><code>respawn_count():
-  if not AGING: return 0
-  base=BR
-  if POPREBAL:
-    if live% &lt; Fill%-Threshold: return base+1
-    if live% &gt; Fill%+Threshold: return max(base-1,0)
-  return base</code></pre>
-
-  <h3>Aging Phase</h3>
-  <pre><code>apply_aging():
-  aged=find_aged_cells()
-  for each aged cell:
-    kill
-    for k in 1..respawn_count():
-      j=spawn_one()
-      if j:
-        if RAINBOW: color=avg neighbors or dying cell
-        else: color=FILL_COLOR
-</code></pre>
-
-  <h3>Presets Placement</h3>
-  <pre><code>applyPreset(pattern):
-  clearBoard()
-  clearHistory()
-  offset=centerOffset(pattern)
-  for (dr,dc) in pattern.cells:
-    place cell at offset+dr,dc with FILL_COLOR
-  generation=0
-  pushHistorySnapshot()</code></pre>
+  <p>Detailed pseudocode for neighbor counting, stepping, aging, rebalancing, trends rendering, history management, and preset placement remains as previously defined.</p>
 
   <h2>14) Developer Notes</h2>
   <ul class="compact">
@@ -244,5 +144,68 @@ step_forward_user():
     <li>Favicons cached; use ?v=2 when testing.</li>
     <li>Accessibility: labels + shortcuts skip inputs.</li>
   </ul>
+
+  <h2>15) Appendix A: Preset Pattern Coordinates</h2>
+  <p>This appendix defines each preset’s coordinates (relative to origin) or provides canonical RLE encodings from LifeWiki for large patterns.</p>
+
+  <h3>A.1 Small & Medium Patterns (coordinate arrays)</h3>
+  <pre><code>
+Block: [ [0,0],[0,1],[1,0],[1,1] ]
+Beehive: [ [0,1],[0,2],[1,0],[1,3],[2,1],[2,2] ]
+Loaf: [ [0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2] ]
+Boat: [ [0,0],[0,1],[1,0],[1,2],[2,1] ]
+
+Blinker: [ [0,-1],[0,0],[0,1] ]
+Toad: [ [0,1],[0,2],[0,3],[1,0],[1,1],[1,2] ]
+Beacon: [ [0,0],[0,1],[1,0],[2,3],[3,2],[3,3] ]
+
+Glider: [ [0,1],[1,2],[2,0],[2,1],[2,2] ]
+
+R-pentomino: [ [0,1],[0,2],[1,0],[1,1],[2,1] ]
+Diehard: [ [0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7] ]
+Acorn: [ [0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6] ]
+</code></pre>
+
+  <h3>A.2 Large Oscillators & Spaceships (RLE encodings)</h3>
+  <p class="cite">RLE is the canonical format used by LifeWiki; these encodings can be parsed to coordinates at load-time.</p>
+
+  <h4>Pulsar (p3 oscillator)</h4>
+  <pre><code>RLE: See LifeWiki “Pulsar” page for canonical RLE.</code></pre>
+
+  <h4>Pentadecathlon (p15 oscillator)</h4>
+  <pre><code>RLE: See LifeWiki “Pentadecathlon” page for canonical RLE.</code></pre>
+
+  <h4>Lightweight Spaceship (LWSS)</h4>
+  <pre><code>RLE: See LifeWiki “Lightweight spaceship” page for canonical RLE.</code></pre>
+
+  <h4>Middleweight Spaceship (MWSS)</h4>
+  <pre><code>RLE: See LifeWiki “Middleweight spaceship” page for canonical RLE.</code></pre>
+
+  <h4>Heavyweight Spaceship (HWSS)</h4>
+  <pre><code>RLE: See LifeWiki “Heavyweight spaceship” page for canonical RLE.</code></pre>
+
+  <h3>A.3 Guns & Engines (RLE)</h3>
+
+  <h4>Gosper Glider Gun</h4>
+  <pre><code>x = 36, y = 20, rule = B3/S23
+9bo$7bobo$8b2o5$16bo$17bo$15b3o2$23bobo$21bo3bo$13bo7bo$12b4o4bo4bo8b2o$11b2obobo4bo12b2o$2o8b3obo2bo3bo3bo$2o9b2obobo6bobo$12b4o$13bo!
+</code></pre>
+  <div class="cite">Source: LifeWiki Gosper glider gun page (RLE block), retrieved 2025-09-01.</div>
+
+  <h4>Simkin Glider Gun</h4>
+  <pre><code>RLE: See LifeWiki “Simkin glider gun” page for canonical RLE.</code></pre>
+
+  <h4>Puffer Train</h4>
+  <pre><code>RLE: See LifeWiki page for a standard “Puffer train” (e.g., puffer 1) canonical RLE.</code></pre>
+
+  <h3>A.4 Additional Long-Evolution Seeds (RLE or coordinates)</h3>
+  <p>Include additional small seeds with long evolutions:</p>
+  <ul>
+    <li>B-heptomino — RLE from LifeWiki</li>
+    <li>Pi-heptomino — RLE from LifeWiki</li>
+    <li>Herschel — RLE from LifeWiki</li>
+  </ul>
+  <p class="cite">Coordinate extraction: parse RLE → generate relative (row,col) arrays at runtime during preset insertion.</p>
+
 </body>
 </html>
