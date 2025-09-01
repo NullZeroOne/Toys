@@ -37,7 +37,7 @@
   .grid3{display:grid;grid-template-columns:repeat(3,34px);grid-auto-rows:34px;gap:6px}
   .grid3 button{padding:0;font-size:18px;background:var(--btn);border:1px solid var(--btn2);border-radius:8px;color:var(--text);cursor:pointer}
   .grid3 button:hover{background:#222}
-  .diag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);margin-top:6px;white-space:pre-line}
+  .diag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);margin-top:6px;white-space:pre}
   .divider{height:1px;background:#1a1a1a;margin:10px 0}
   /* Modal */
   .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
@@ -206,20 +206,27 @@ History: 0/20</div>
     const newRows = Math.max(2, Math.floor(newH/(blockSize*dpr)));
     if (newCols===cols && newRows===rows) return;
 
-    cols=newCols; rows=newRows;
-    const newGrid = new Uint8Array(rows*cols);
-    const newColors = new Uint32Array(rows*cols);
+    // CENTER-ANCHORED PRESERVATION
+    const newGrid = new Uint8Array(newRows*newCols);
+    const newColors = new Uint32Array(newRows*newCols);
 
-    const cr = Math.min(prevRows||0, rows), cc = Math.min(prevCols||0, cols);
-    if (prevGrid && prevGrid.length){
-      for (let r=0;r<cr;r++){
-        for (let c=0;c<cc;c++){
-          const si = r*(prevCols||cols)+c, di = r*cols+c;
-          newGrid[di] = prevGrid[si];
-          newColors[di] = prevColors[si]||0;
-        }
+    const copyRows = Math.min(prevRows||0, newRows);
+    const copyCols = Math.min(prevCols||0, newCols);
+    const rowOffset = Math.floor((newRows - copyRows)/2);
+    const colOffset = Math.floor((newCols - copyCols)/2);
+
+    for (let r=0;r<copyRows;r++){
+      for (let c=0;c<copyCols;c++){
+        const srcIdx = r*(prevCols||copyCols)+c;
+        const rr = r + rowOffset;
+        const cc = c + colOffset;
+        const dstIdx = rr*newCols + cc;
+        newGrid[dstIdx]  = prevGrid ? prevGrid[srcIdx] : 0;
+        newColors[dstIdx]= prevColors ? prevColors[srcIdx] : 0;
       }
     }
+
+    cols=newCols; rows=newRows;
     grid = newGrid; colors=newColors;
     activity = new Uint16Array(rows*cols);
 
@@ -594,7 +601,8 @@ History: 0/20</div>
       const h=document.createElement('h4'); h.textContent=p.name; card.appendChild(h);
       const sm=document.createElement('small'); sm.textContent=p.desc||''; card.appendChild(sm);
       const btn=document.createElement('button'); btn.className='tiny'; btn.textContent='Insert';
-      btn.addEventListener('click',()=>{ insertPreset(p); modal.style.display='none'; });
+      if (p.disabled){ btn.disabled=true; btn.title=p.disabled; }
+      btn.addEventListener('click',()=>{ if(!p.disabled){ insertPreset(p); modal.style.display='none'; }});
       card.appendChild(btn); list.appendChild(card);
     });
   }
@@ -622,7 +630,7 @@ History: 0/20</div>
   // Simple RLE parser
   function parseRLE(rle){
     const lines = rle.split(/\r?\n/).map(s=>s.trim()).filter(s=>s && !s.startsWith('#'));
-    if (/^x\s*=\s*\d+/.test(lines[0])) lines.shift();
+    if (lines.length && /^x\s*=\s*\d+/.test(lines[0])) lines.shift();
     const data = lines.join('').replace(/\s+/g,'');
     const out=[]; let r=0,c=0, num='';
     for (let i=0;i<data.length;i++){
@@ -641,10 +649,10 @@ History: 0/20</div>
     // Still lifes
     {name:'Block', desc:'Still life', type:'coords', cells:[[0,0],[0,1],[1,0],[1,1]]},
     {name:'Beehive', desc:'Still life', type:'coords', cells:[[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]]},
-    {name:'Loaf', desc:'Still life', type:'coords', cells:[[0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2]]},
-    {name:'Boat', desc:'Still life', type:'coords', cells:[[0,0],[0,1],[1,0],[1,2],[2,1]]},
+    {name:'Loaf', desc:'Still life', type:'coords', cells=[[0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2]]},
+    {name:'Boat', desc:'Still life', type:'coords', cells=[[0,0],[0,1],[1,0],[1,2],[2,1]]},
     // Oscillators
-    {name:'Blinker', desc:'p2 oscillator', type:'coords', cells:[[0,0],[0,1],[0,2]]},
+    {name:'Blinker', desc:'p2 oscillator', type:'coords', cells=[[0,0],[0,1],[0,2]]},
     {name:'Toad', desc:'p2 oscillator', type:'coords', cells=[[1,0],[1,1],[1,2],[0,1],[0,2],[0,3]]},
     {name:'Beacon', desc:'p2 oscillator', type:'coords', cells=[[0,0],[0,1],[1,0],[2,3],[3,2],[3,3]]},
     {name:'Pulsar', desc:'p3 oscillator (RLE)', type:'rle', rle:`x = 13, y = 13, rule = B3/S23
@@ -658,8 +666,18 @@ History: 0/20</div>
     // Guns
     {name:'Gosper Glider Gun', desc:'p30 gun (RLE)', type:'rle', rle:`x = 36, y = 9, rule = B3/S23
 24bo$22bobo$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o$2o8bo3bob2o4bobo$10bo5bo7bo$11bo3bo$12b2o!`},
-    // Chaotic seeds
-    {name:'R-pentomino', desc:'Methuselah', type:'coords', cells=[[0,1],[0,2],[1,0],[1,1],[2,1]]},
+    // Placeholders for larger patterns until exact RLE strings are provided
+    {name:'Simkin Glider Gun', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
+    {name:'Classic Puffer Train', desc:'Puffer (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
+    {name:'MWSS', desc:'Spaceship (RLE needed)', disabled:'RLE pending'},
+    {name:'HWSS', desc:'Spaceship (RLE needed)', disabled:'RLE pending'},
+    {name:'ak94 (p94 gun)', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
+    {name:'gun132', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
+    {name:'gunstar2 (p168)', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
+    {name:'maximumvolatilitygun (p177)', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
+    {name:'twogun (p60)', desc:'Two-glider gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
+    // Methuselahs
+    {name:'R-pentomino', desc:'Methuselah', type:'coords', cells:[[0,1],[0,2],[1,0],[1,1],[2,1]]},
     {name:'Diehard', desc:'Methuselah', type:'coords', cells=[[0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7]]},
     {name:'Acorn', desc:'Methuselah', type:'coords', cells=[[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]]},
   ];
