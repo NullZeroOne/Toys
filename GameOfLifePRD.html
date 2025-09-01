@@ -4,71 +4,75 @@
   <meta charset="UTF-8">
   <title>Game of Life Product Requirements Document</title>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 2em; }
+    body { font-family: Arial, sans-serif; line-height: 1.55; margin: 2em; max-width: 980px; }
     h1, h2, h3 { color: #2f6feb; }
     code { background: #f4f4f4; padding: 2px 4px; border-radius: 4px; }
+    ul { margin-top: 0.3em; }
+    .callout { background: #f6f7f9; border: 1px solid #e1e4e8; padding: 10px 12px; border-radius: 8px; }
   </style>
 </head>
 <body>
   <h1>Conway’s Game of Life — Product Requirements Document (PRD)</h1>
 
   <h2>Overview</h2>
-  <p>This is a browser-based implementation of Conway’s Game of Life with advanced visualization and control features, including Rainbow mode, Aging with PopRebal, directional/quarter fills, and undo/redo history.</p>
+  <p>This is a browser-based implementation of Conway’s Game of Life with advanced visualization and control features, including Rainbow mode, Aging with PopRebal, directional/quarter fills, history with undo/redo, Trends visualization with legend, keyboard shortcuts, and an FPS indicator.</p>
 
   <h2>Defaults</h2>
   <ul>
     <li>Default block size: <strong>15 px</strong></li>
     <li>Default history buffer size: <strong>20</strong></li>
     <li>Default fill percentage: <strong>10%</strong></li>
-    <li>Toroidal topology: <strong>enabled</strong></li>
-    <li>Rainbow mode: <strong>disabled</strong></li>
-    <li>Trends: <strong>disabled</strong></li>
-    <li>Aging: <strong>disabled</strong></li>
-    <li>PopRebal: <strong>disabled</strong></li>
+    <li>Toroidal topology: <strong>enabled</strong> by default</li>
+    <li>Rainbow mode: <strong>disabled</strong> by default</li>
+    <li>Trends: <strong>disabled</strong> by default</li>
+    <li>Aging: <strong>disabled</strong> by default</li>
+    <li>PopRebal: <strong>disabled</strong> by default (requires Aging)</li>
   </ul>
 
-  <h2>Key Features</h2>
+  <h2>Controls & UI Layout</h2>
+  <div class="callout">
+    <p><strong>Compact, narrow layout.</strong> Reduce vertical and horizontal whitespace (tighter paddings/margins), while preserving the left-panel design.</p>
+    <ul>
+      <li><strong>Top row:</strong> Play, Pause, ⬅️ (step back), ➡️ (step forward) on a single line.</li>
+      <li><strong>Block size + Resize:</strong> Place the <em>Resize</em> button <u>next to</u> the <em>Block size (px)</em> input. Both the input and the button are <strong>narrow</strong> so they do not increase panel width.</li>
+      <li><strong>Fill % + Color Picker:</strong> Place the color swatch button <u>next to</u> the <em>Fill %</em> input on the same line. The swatch is <strong>narrow</strong> (small square) to keep the layout compact.</li>
+      <li><strong>Fill controls:</strong> 3×3 grid of buttons laid out as:
+        <br>↖️ ⬆️ ↗️
+        <br>⬅️ ⏺️ ➡️
+        <br>↙️ ⬇️ ↘️
+      </li>
+      <li><strong>Trends legend:</strong> shown on-canvas when Trends is enabled.</li>
+      <li><strong>Keyboard shortcuts:</strong> space = play/pause, ← = step back, → = step forward (shortcuts ignored while typing in inputs).</li>
+    </ul>
+  </div>
+
+  <h2>Behavior</h2>
   <ul>
-    <li><strong>Play / Pause / Step</strong> controls with undo/redo history.</li>
-    <li><strong>History snapshots:</strong> manual edits (drawing/filling) now always push snapshots. This fixes the previous bug where stepping back after a draw returned to an empty board.</li>
-    <li><strong>Rainbow Mode:</strong> cells born from exactly 3 neighbors inherit the average color of those neighbors. Colors are always stored. Rainbow and Aging can be enabled together.</li>
-    <li><strong>Aging:</strong> cells alive across the full history die and respawn outward. Respawn count varies based on Birth Rate and PopRebal rules.</li>
-    <li><strong>PopRebal:</strong> requires Aging. Adjusts respawns based on live population vs. fill% ± threshold.</li>
-    <li><strong>Fill Feature:</strong> uses a <strong>3×3 grid of arrow buttons</strong>:
+    <li><strong>History & Undo/Redo:</strong> Manual edits (drawing/filling) push snapshots. Also snapshot before stepping forward if there are unsaved edits. This resolves the prior bug where stepping back after drawing returned to a blank state.</li>
+    <li><strong>Clear:</strong> Clears the board and the entire history.</li>
+    <li><strong>Fill behavior:</strong> Filling activates a percentage of the chosen region without turning off existing cells; repeated clicks pick new random cells.</li>
+    <li><strong>Rendering (non-Rainbow):</strong> When Rainbow mode is <em>off</em>, live cells are rendered using their stored per-cell colors (Colorize option removed; always on).</li>
+    <li><strong>Rainbow Mode:</strong> Births (exactly 3 neighbors) get the RGB average of those neighbors. Colors are always stored. Existing cells do not change color when toggling the mode.</li>
+    <li><strong>Aging:</strong> When a cell has been alive across the full, filled history window, it dies; respawns radiate outward using the specified rules. Rainbow + Aging can be enabled simultaneously; aged respawn colors average immediate neighbors at the spawn point, or inherit the aged cell color if none.</li>
+    <li><strong>PopRebal (requires Aging):</strong> Uses Fill% and Threshold%:
       <ul>
-        <li>↖️ top-left quarter</li>
-        <li>⬆️ top half</li>
-        <li>↗️ top-right quarter</li>
-        <li>⬅️ left half</li>
-        <li>⏺️ entire board</li>
-        <li>➡️ right half</li>
-        <li>↙️ bottom-left quarter</li>
-        <li>⬇️ bottom half</li>
-        <li>↘️ bottom-right quarter</li>
+        <li>Population &lt; (Fill% − Threshold%) → spawn count per aged death = BR + 1</li>
+        <li>Within range → spawn count = BR</li>
+        <li>Population &gt; (Fill% + Threshold%) → spawn count = max(BR − 1, 0)</li>
       </ul>
     </li>
-    <li><strong>Fill Behavior:</strong> activating cells by percentage; never clears existing live cells.</li>
-    <li><strong>Clear:</strong> clears both the board and the history buffer.</li>
-    <li><strong>Stored Colors Always Used:</strong> The Colorize B/W option has been removed. When Rainbow is off, stored per-cell colors are still used for display instead of plain black.</li>
-    <li><strong>Trends Visualization:</strong> multi-stop gradient (white → blue → teal → green → yellow → red) based on activity fraction. Includes an on-canvas legend.</li>
-    <li><strong>FPS Indicator:</strong> shows turns per second while running, persists when paused, unaffected by undo/redo.</li>
-    <li><strong>Keyboard Shortcuts:</strong> space toggles play/pause; ← steps back; → steps forward.</li>
+    <li><strong>Trends:</strong> Trend coloring uses a white→blue→teal→green→yellow→red gradient based on the fraction of known states (current + history) in which a cell has been alive; when there’s no history, show the current state normally.</li>
+    <li><strong>Diagnostics:</strong> Generation, live count, grid size, topology, live %, and FPS (updated while running; persists when paused; stepping does not change the FPS value).</li>
   </ul>
 
-  <h2>Fill Color Picker</h2>
-  <p>Includes a color picker button (default blue). The selected color is used for fills, manual drawing, and non-rainbow births/aging respawns.</p>
-
-  <h2>Status Panel</h2>
+  <h2>Developer Notes</h2>
   <ul>
-    <li>Generation count</li>
-    <li>Live cell count</li>
-    <li>Grid dimensions</li>
-    <li>Topology (Toroidal/Bounded)</li>
-    <li>Live %</li>
-    <li>FPS indicator</li>
+    <li>Initial board load fills a random 30% of cells (using the selected color).</li>
+    <li>Step-forward engine runs per animation frame; FPS is measured from frame deltas.</li>
+    <li>Toroidal topology is enabled by default but can be toggled.</li>
   </ul>
 
   <h2>Known Fixes</h2>
-  <p><strong>History bug fixed:</strong> Step Back after drawing now correctly returns to the drawn shape (manual edits push snapshots).</p>
+  <p><strong>History bug fixed:</strong> Step Back after drawing now correctly returns to the drawn shape (manual edits push snapshots; pending edits snapshot before advancing).</p>
 </body>
 </html>
