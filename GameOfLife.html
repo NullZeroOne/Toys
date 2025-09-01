@@ -8,12 +8,12 @@
 <link rel="icon" href="GameOfLife-16.png" sizes="16x16" type="image/png">
 <link rel="shortcut icon" href="GameOfLife.ico" type="image/x-icon">
 <link rel="apple-touch-icon" href="GameOfLife-apple-touch-180.png" sizes="180x180">
-<meta name="theme-color" content="#0a67ff">
+<meta name="theme-color" content="#000000">
 <style>
   :root{
-    --bg:#0b0c10; --panel:#15171b; --muted:#a9b3c0; --text:#e8ecf1;
-    --grid:#23262c; --btn:#1d2026; --btn2:#262a32; --accent:#2f6feb;
-    --border:#1f2229;
+    --bg:#000; --panel:#111; --muted:#b9c2cf; --text:#fff;
+    --grid:#1a1a1a; --btn:#161616; --btn2:#2a2a2a; --accent:#2f6feb;
+    --border:#222;
   }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
@@ -22,31 +22,29 @@
   main{flex:1;display:flex;flex-direction:column;min-width:0}
   header{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;gap:10px;align-items:center}
   .spacer{flex:1}
-  .pill{padding:5px 8px;border-radius:999px;background:#10131a;border:1px solid #222632;color:var(--muted);font-size:12px}
-  canvas{display:block;flex:1;background:#0b0c10;image-rendering:pixelated}
+  .pill{padding:5px 8px;border-radius:999px;background:#0f0f0f;border:1px solid #222;color:var(--muted);font-size:12px}
+  canvas{display:block;flex:1;background:#000;image-rendering:pixelated}
   h3{margin:10px 0 4px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
   .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .controls button{padding:6px 9px;border-radius:8px;background:var(--btn);border:1px solid var(--btn2);color:var(--text);cursor:pointer}
-  .controls button:hover{background:#2a2f39}
+  .controls button:hover{background:#222}
   .controls button:disabled{opacity:.55;cursor:not-allowed}
-  input[type="number"]{width:70px;padding:6px 8px;border-radius:8px;border:1px solid #242730;background:#111319;color:var(--text)}
+  input[type="number"]{width:70px;padding:6px 8px;border-radius:8px;border:1px solid #2a2a2a;background:#0b0b0b;color:var(--text)}
   input[type="checkbox"]{transform:translateY(1px)}
   label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
   .narrow input[type="number"]{width:64px}
-  .swatch{width:26px;height:26px;border-radius:6px;border:1px solid #2a2f3a;background:#2a6cff;cursor:pointer}
+  .swatch{width:26px;height:26px;border-radius:6px;border:1px solid #2a2a2a;background:#fff;cursor:pointer}
   .grid3{display:grid;grid-template-columns:repeat(3,34px);grid-auto-rows:34px;gap:6px}
   .grid3 button{padding:0;font-size:18px;background:var(--btn);border:1px solid var(--btn2);border-radius:8px;color:var(--text);cursor:pointer}
-  .grid3 button:hover{background:#2a2f39}
-  .legend{display:flex;align-items:center;gap:8px;margin-top:4px}
-  .legend-bar{width:160px;height:10px;border-radius:4px;background:linear-gradient(90deg,#ffffff,#b3e5ff,#47d7ff,#1ccbaa,#8ce91c,#ffe54d,#ff7a45,#ff1f1f);border:1px solid #2b3039}
+  .grid3 button:hover{background:#222}
   .diag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);margin-top:6px}
-  .divider{height:1px;background:#1e222a;margin:10px 0}
+  .divider{height:1px;background:#1a1a1a;margin:10px 0}
   /* Modal */
-  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:20}
-  .modal{width:min(900px, calc(100% - 24px));max-height:80vh;overflow:auto;background:var(--panel);border:1px solid #2a2e37;border-radius:12px;box-shadow:0 12px 50px rgba(0,0,0,.5)}
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
+  .modal{width:min(900px, calc(100% - 24px));max-height:80vh;overflow:auto;background:var(--panel);border:1px solid #2a2a2a;border-radius:12px;box-shadow:0 12px 50px rgba(0,0,0,.6)}
   .modal header{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--panel);z-index:1;padding:10px 12px;border-bottom:1px solid var(--border)}
   .preset-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:12px}
-  .card{border:1px solid #2a2e37;background:#10131a;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .card{border:1px solid #2a2a2a;background:#0b0b0b;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
   .card h4{margin:0;font-size:14px}
   .card small{color:var(--muted)}
   .tiny{padding:5px 8px;border-radius:7px;background:var(--btn);border:1px solid var(--btn2);color:var(--text);cursor:pointer}
@@ -56,10 +54,10 @@
 <div class="app">
   <aside>
     <div class="row controls">
-      <button id="btnPlay" title="Play">▶</button>
-      <button id="btnPause" title="Pause">⏸</button>
-      <button id="btnStepBack" title="Step Back">⟵</button>
-      <button id="btnStepForward" title="Step Forward">⟶</button>
+      <button id="btnPlay" title="Play">▶️</button>
+      <button id="btnPause" title="Pause">⏸️</button>
+      <button id="btnStepBack" title="Step Back">⬅️</button>
+      <button id="btnStepForward" title="Step Forward">➡️</button>
       <button id="btnClear" title="Clear board & history">Clear</button>
     </div>
 
@@ -94,22 +92,21 @@
 
     <div class="divider"></div>
 
+    <!-- Options arranged as requested -->
     <div class="row">
       <label><input type="checkbox" id="chkToroidal" checked> Toroidal</label>
+    </div>
+    <div class="row" style="margin-top:6px;">
       <label><input type="checkbox" id="chkRainbow"> Rainbow</label>
       <label><input type="checkbox" id="chkTrends"> Trends</label>
     </div>
     <div class="row" style="margin-top:6px;">
       <label><input type="checkbox" id="chkAging"> Aging</label>
       <label>Birth rate <input type="number" id="inputBR" min="0" max="12" step="1" value="2"></label>
+    </div>
+    <div class="row" style="margin-top:6px;">
       <label><input type="checkbox" id="chkRebal"> PopRebal</label>
       <label>Threshold % <input type="number" id="inputThresh" min="0" max="50" step="1" value="5"></label>
-    </div>
-
-    <div class="divider"></div>
-    <div class="legend">
-      <div class="legend-bar"></div>
-      <span style="color:var(--muted);font-size:12px">white → blue → teal → green → yellow → orange → red</span>
     </div>
 
     <div class="divider"></div>
@@ -144,7 +141,7 @@
   const $$ = s=>Array.from(document.querySelectorAll(s));
   const canvas = $('#board'); const ctx = canvas.getContext('2d',{alpha:false});
 
-  // --- Options / Defaults (per PRD) ---
+  // --- Options / Defaults ---
   let blockSize = 15;
   let historyCap = 20;
   let running = false;
@@ -157,7 +154,7 @@
     BR: 2,
     thresh: 5,
     fillPct: 10,
-    fillColor: {r:0,g:123,b:255}
+    fillColor: {r:255,g:255,b:255} // white on black
   };
 
   // --- Grid state ---
@@ -195,29 +192,32 @@
   function setCanvas(){
     const dpr = Math.max(1, window.devicePixelRatio||1);
     const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.floor(rect.width*dpr);
-    canvas.height = Math.floor((window.innerHeight - canvas.getBoundingClientRect().top)*dpr);
+    const newW = Math.floor(rect.width*dpr);
+    const newH = Math.floor((window.innerHeight - canvas.getBoundingClientRect().top)*dpr);
+    const prevCols = cols, prevRows = rows, prevGrid = grid, prevColors = colors;
+    canvas.width = newW; canvas.height = newH;
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    fitGrid();
-  }
-
-  function fitGrid(){
-    const dpr = Math.max(1, window.devicePixelRatio||1);
-    const newCols = Math.max(2, Math.floor(canvas.width/(blockSize*dpr)));
-    const newRows = Math.max(2, Math.floor(canvas.height/(blockSize*dpr)));
+    // Recompute rows/cols based on block size; preserve existing content (top-left anchor)
+    const newCols = Math.max(2, Math.floor(newW/(blockSize*dpr)));
+    const newRows = Math.max(2, Math.floor(newH/(blockSize*dpr)));
     if (newCols===cols && newRows===rows) return;
     cols=newCols; rows=newRows;
-    grid = new Uint8Array(rows*cols);
-    colors = new Uint32Array(rows*cols);
+    const newGrid = new Uint8Array(rows*cols);
+    const newColors = new Uint32Array(rows*cols);
+    const cr = Math.min(prevRows||0, rows), cc = Math.min(prevCols||0, cols);
+    if (prevGrid && prevGrid.length){
+      for (let r=0;r<cr;r++){
+        for (let c=0;c<cc;c++){
+          const si = r*(prevCols||cols)+c, di = r*cols+c;
+          newGrid[di] = prevGrid[si];
+          newColors[di] = prevColors[si]||0;
+        }
+      }
+    }
+    grid = newGrid; colors=newColors;
     activity = new Uint16Array(rows*cols);
-    // initial random 30%
-    randomFill('c',30);
-    generation=0;
-    snaps=[]; cursor=-1;
-    pushSnap();
     recalcActivity();
-    draw();
-    updateDiag();
+    draw(); updateDiag();
   }
 
   function updateDiag(){
@@ -227,15 +227,13 @@
   }
   function updateButtons(){
     btnStepB.disabled = cursor<=0 || running;
-    btnStepF.disabled = running?false:false; // allow stepping even at tip (computes new)
+    btnStepF.disabled = running?false:false;
   }
 
   // --- History management ---
   function pushSnap(){
-    // truncate redo if not at tip
     if (cursor < snaps.length-1) snaps = snaps.slice(0,cursor+1);
     snaps.push({ g: Uint8Array.from(grid), c: Uint32Array.from(colors), gen: generation });
-    // enforce cap
     while (snaps.length > historyCap){ snaps.shift(); cursor=Math.max(0,cursor-1); }
     cursor = snaps.length-1;
     updateButtons();
@@ -266,10 +264,10 @@
   // --- Drawing ---
   let showQuarters = false;
   function draw(){
-    ctx.fillStyle='#0b0c10'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
     const b = blockSize;
     const trends = opts.trends;
-    const rainbow = opts.rainbow;
+
     const windowKnown = (cursor>=0)? (cursor - Math.max(0,(cursor+1)-historyCap) + 1) : 0;
 
     for (let r=0;r<rows;r++){
@@ -281,7 +279,7 @@
           fill = trendColor(frac);
         } else if (grid[i]===1){
           const u = colors[i] || packRGB(opts.fillColor.r, opts.fillColor.g, opts.fillColor.b);
-          fill = unpack(u); // non-rainbow shows stored colors as well
+          fill = unpack(u);
         }
         if (fill){
           ctx.fillStyle=fill;
@@ -289,21 +287,19 @@
         }
       }
     }
-    // optional quarters overlay
     if (showQuarters){
-      ctx.strokeStyle='rgba(255,255,255,0.12)';
+      ctx.strokeStyle='rgba(255,255,255,0.14)';
       ctx.beginPath();
       ctx.moveTo((cols*b)/2,0); ctx.lineTo((cols*b)/2,rows*b);
       ctx.moveTo(0,(rows*b)/2); ctx.lineTo(cols*b,(rows*b)/2);
       ctx.stroke();
     }
-    // faint grid if blocks large
+    // faint grid lines
     if (b>=16){
-      ctx.strokeStyle='rgba(255,255,255,0.04)';
+      ctx.strokeStyle='rgba(255,255,255,0.06)';
       for (let x=0;x<=cols;x++){ ctx.beginPath(); ctx.moveTo(x*b,0); ctx.lineTo(x*b,rows*b); ctx.stroke(); }
-      for (let y=0;y<=rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*b); ctx.lineTo(cols*b,y*b); ctx.stroke(); }
+      for (let y=0;y<=rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*b); ctx.lineTo(cols*b,y); ctx.stroke(); }
     }
-    // on-canvas legend for trends
     if (trends){
       drawLegendCanvas(8, Math.max(8, rows*b - 30), 160, 10);
     }
@@ -319,7 +315,7 @@
       {r:255,g:122,b:69},
       {r:255,g:31,b:31}
     ];
-    const t = clamp(frac,0,1)*(stops.length-1);
+    const t = Math.max(0,Math.min(1,frac))*(stops.length-1);
     const i = Math.floor(t), j=Math.min(stops.length-1,i+1), f=t-i;
     const a=stops[i], b=stops[j];
     const rr=Math.round(a.r+(b.r-a.r)*f), gg=Math.round(a.g+(b.g-a.g)*f), bb=Math.round(a.b+(b.b-a.b)*f);
@@ -330,8 +326,8 @@
     g.addColorStop(0,'#ffffff'); g.addColorStop(.14,'#b3e5ff'); g.addColorStop(.28,'#47d7ff');
     g.addColorStop(.42,'#1ccbaa'); g.addColorStop(.56,'#8ce91c'); g.addColorStop(.7,'#ffe54d');
     g.addColorStop(.85,'#ff7a45'); g.addColorStop(1,'#ff1f1f');
-    ctx.fillStyle=g; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#333'; ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle='#e8ecf1'; ctx.font='10px system-ui,sans-serif';
+    ctx.fillStyle=g; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#555'; ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle='#fff'; ctx.font='10px system-ui,sans-serif';
     ['0%','25%','50%','75%','100%'].forEach((t,ix)=>{
       const tx=x+Math.round((ix*0.25)*w);
       ctx.fillText(t, tx-8,y+h+10);
@@ -390,9 +386,7 @@
 
     // Aging
     if (opts.aging){
-      // Only if history window full
       if (cursor+1 >= historyCap){
-        // Count across last (historyCap) snapshots
         const start = (cursor+1)-historyCap;
         const aliveCounts = new Uint16Array(rows*cols);
         for (let h=start; h<=cursor; h++){
@@ -402,11 +396,9 @@
         const toSpawn=[];
         for (let i=0;i<next.length;i++){
           if (next[i]===1 && aliveCounts[i]===historyCap){
-            // dies of age
             const r=Math.floor(i/cols), c=i%cols;
             const inherit = colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-            next[i]=0; // kill
-            // compute spawns count
+            next[i]=0;
             let spawns=opts.BR;
             if (opts.rebal){
               if (alivePct<low) spawns=opts.BR+1;
@@ -422,7 +414,6 @@
             if (!p) break;
             const [rr,cc]=p, k=idx(rr,cc);
             next[k]=1;
-            // color average of immediate neighbors else dying color
             const nc = neighborColorAvg(rr,cc,next,nextC);
             if (nc){ nextC[k]=packRGB(nc.r,nc.g,nc.b); } else { nextC[k]=t.inherit; }
           }
@@ -434,8 +425,9 @@
   }
 
   function neighborColorAvg(r,c,aliveArr,colorArr){
+    const nbrs=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
     let rr=0,gg=0,bb=0,count=0;
-    for (const [dr,dc] of nbr){
+    for (const [dr,dc] of nbrs){
       const pos=wrap(r+dr,c+dc); if(!pos) continue;
       const [r2,c2]=pos; const i=idx(r2,c2);
       if (aliveArr[i]===1){ const u=colorArr[i]||colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
@@ -456,8 +448,7 @@
           }
         }
       }
-      // shuffle
-      for (let i=ring.length-1;i>0;i--){ const j=rand(i+1); const tmp=ring[i]; ring[i]=ring[j]; ring[j]=tmp; }
+      for (let i=ring.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=ring[i]; ring[i]=ring[j]; ring[j]=tmp; }
       for (const [rr,cc] of ring){
         const k=idx(rr,cc); if (state[k]!==1) return [rr,cc];
       }
@@ -488,7 +479,7 @@
     for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) if (include(r,c)) pool.push(idx(r,c));
     let n=Math.floor(pool.length*(pct/100));
     while (n>0 && pool.length>0){
-      const j=rand(pool.length); const i=pool[j];
+      const j=Math.floor(Math.random()*pool.length); const i=pool[j];
       grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
       pool[j]=pool[pool.length-1]; pool.pop(); n--;
     }
@@ -565,11 +556,10 @@
     if (cursor < snaps.length-1){
       loadSnap(cursor+1);
     } else {
-      // compute new generation at tip
       const t0=performance.now();
       stepOnce();
       const t1=performance.now();
-      const dt=(t1-(lastTs||t0))/1000; if (dt>0) fps = 1/((t1-t0)/1000);
+      fps = 1/((t1-t0)/1000);
       pushSnap(); recalcActivity(); draw(); updateDiag();
       lastTs=t1;
     }
@@ -579,9 +569,7 @@
   // --- RAF loop ---
   function loop(ts){
     if (running){
-      if (cursor<snaps.length-1){ // if user stepped back and hit play, snap to tip first
-        loadSnap(snaps.length-1);
-      }
+      if (cursor<snaps.length-1){ loadSnap(snaps.length-1); }
       const t0=performance.now();
       stepOnce();
       const t1=performance.now();
@@ -591,7 +579,7 @@
     requestAnimationFrame(loop);
   }
 
-  // --- Presets ---
+  // --- Presets Modal & Library ---
   const modal=$('#modal'), list=$('#presetList'), btnCloseModal=$('#btnCloseModal');
   btnPresets.addEventListener('click',()=>{ buildPresetList(); modal.style.display='flex'; });
   btnCloseModal.addEventListener('click',()=>{ modal.style.display='none'; });
@@ -633,7 +621,6 @@
   // Simple RLE parser
   function parseRLE(rle){
     const lines = rle.split(/\r?\n/).map(s=>s.trim()).filter(s=>s && !s.startsWith('#'));
-    // strip header
     if (/^x\s*=\s*\d+/.test(lines[0])) lines.shift();
     const data = lines.join('').replace(/\s+/g,'');
     const out=[]; let r=0,c=0, num='';
@@ -676,15 +663,37 @@
     {name:'Acorn', desc:'Methuselah', type:'coords', cells:[[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]]},
   ];
 
-  // --- Start ---
+  // --- Initial load: center R-pentomino, no random fill ---
+  function placeInitialRPentomino(){
+    const cells = [[0,1],[0,2],[1,0],[1,1],[2,1]];
+    const h = 3, w = 3; // bounding box for R-pentomino coordinates above
+    const offR = Math.floor((rows - h)/2);
+    const offC = Math.floor((cols - w)/2);
+    for (const [r,c] of cells){
+      const rr = offR + r;
+      const cc = offC + c;
+      if (rr>=0 && rr<rows && cc>=0 && cc<cols){
+        const i = idx(rr,cc);
+        grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+      }
+    }
+  }
+
   function init(){
     inputBlock.value=String(blockSize);
     inputBR.disabled=!opts.aging; chkRebal.disabled=!opts.aging; inputThresh.disabled=!(opts.aging&&opts.rebal);
     btnColor.style.background = `rgb(${opts.fillColor.r},${opts.fillColor.g},${opts.fillColor.b})`;
     window.addEventListener('resize', setCanvas);
+    // First canvas sizing creates grid but preserves content; we want to place R-pentomino after first sizing
     setCanvas();
+    // If history empty, place R-pentomino once
+    if (snaps.length===0 || cursor<0){
+      placeInitialRPentomino();
+      generation=0; snaps=[]; cursor=-1; pushSnap(); recalcActivity(); draw(); updateDiag();
+    }
     requestAnimationFrame(loop);
   }
+
   function rgbToHex({r,g,b}){ const hh=v=>('0'+v.toString(16)).slice(-2); return `#${hh(r)}${hh(g)}${hh(b)}`;}
   function hexToRgb(hex){ const v=parseInt(hex.slice(1),16); return {r:(v>>16)&255,g:(v>>8)&255,b:v&255}; }
 
