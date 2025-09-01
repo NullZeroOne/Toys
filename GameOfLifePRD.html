@@ -1,211 +1,209 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Conway’s Game of Life — Product Requirements Document (PRD)</title>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.55; margin: 2em; max-width: 980px; }
-    h1, h2, h3 { color: #2f6feb; }
-    code, pre { background: #f6f7f9; border: 1px solid #e1e4e8; border-radius: 6px; }
-    pre { padding: 12px; overflow:auto; }
-    .toc { background:#f6f7f9; border:1px solid #e1e4e8; padding:12px; border-radius:8px; }
-    .toc ol { margin:0; padding-left: 18px; }
-    ul.compact li { margin: 3px 0; }
-    .cite { color:#555; font-size:12px; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Game of Life PRD</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 2em; line-height: 1.6; background: #fff; color: #000; }
+  h1,h2,h3,h4 { color: #003366; }
+  pre { background: #f4f4f4; padding: 1em; overflow-x: auto; }
+  code { color: #660000; }
+  nav ul { list-style: none; padding: 0; }
+  nav ul li { margin: .3em 0; }
+</style>
 </head>
 <body>
-  <h1>Conway’s Game of Life — Product Requirements Document</h1>
+<h1>Product Requirements Document<br>Conway's Game of Life — Extended Web App</h1>
 
-  <div class="toc">
-    <h3>Table of Contents</h3>
-    <ol>
-      <li>Overview & Scope</li>
-      <li>Defaults</li>
-      <li>UI Layout & Controls</li>
-      <li>Editing & Fill Tools</li>
-      <li>Simulation Rules</li>
-      <li>Aging & Population Rebalancing</li>
-      <li>Visualization Modes</li>
-      <li>History & Bug Fix</li>
-      <li>Diagnostics</li>
-      <li>Favicon & Branding</li>
-      <li>Keyboard Shortcuts</li>
-      <li>Presets Feature</li>
-      <li>Pseudocode (Algorithms)</li>
-      <li>Developer Notes</li>
-      <li>Appendix A: Preset Pattern Coordinates</li>
-    </ol>
-  </div>
+<nav>
+<h2>Table of Contents</h2>
+<ul>
+  <li>1. Introduction</li>
+  <li>2. Defaults</li>
+  <li>3. User Interface</li>
+  <li>4. Controls & Editing</li>
+  <li>5. Simulation Rules</li>
+  <li>6. Aging & Population Rebalancing</li>
+  <li>7. Visualization Modes</li>
+  <li>8. History & Stepping</li>
+  <li>9. Diagnostics</li>
+  <li>10. Presets Feature</li>
+  <li>11. Favicon & Branding</li>
+  <li>12. Keyboard Shortcuts</li>
+  <li>13. Pseudocode</li>
+  <li>Appendix A. Preset Pattern Definitions</li>
+</ul>
+</nav>
 
-  <h2>1) Overview & Scope</h2>
-  <p>A feature-rich browser-based Game of Life with advanced visualization (Rainbow, Trends), Aging with Population Rebalancing, Presets modal with classic patterns, history navigation, fill tools, diagnostics, and favicon branding.</p>
+<h2>1. Introduction</h2>
+<p>This document defines requirements for the extended Conway’s Game of Life web app, including UI layout, simulation behavior, visualization, presets, and special rules.</p>
 
-  <h2>2) Defaults</h2>
-  <ul class="compact">
-    <li>Block size: 15 px</li>
-    <li>History buffer: 20</li>
-    <li>Fill percentage default: 10%</li>
-    <li>Initial fill: 30% random live cells (using fill color)</li>
-    <li>Toroidal topology: enabled</li>
-    <li>Rainbow: off</li>
-    <li>Trends: off</li>
-    <li>Aging: off</li>
-    <li>PopRebal: off (requires Aging)</li>
-    <li>Birth rate: 2 (enabled only if Aging)</li>
-  </ul>
+<h2>2. Defaults</h2>
+<ul>
+<li>Block size: 15 pixels</li>
+<li>Default fill percentage: 10%</li>
+<li>Default fill/draw color: White (#FFFFFF) on black background</li>
+<li>History buffer size: 20 states</li>
+<li>Initial state: <strong>R-pentomino</strong> centered on board</li>
+<li>Toroidal topology: Enabled by default</li>
+</ul>
 
-  <h2>3) UI Layout & Controls</h2>
-  <p>Compact left panel with Play/Pause, Step controls, Block size + Resize, checkboxes for Rainbow/Trends/Aging/PopRebal, numeric fields (History, Threshold, Birth Rate), Fill % + color picker, Fill directional 3×3 grid, Clear + Presets buttons, and status diagnostics at the bottom.</p>
+<h2>3. User Interface</h2>
+<ul>
+<li>Controls panel on the left (narrow, white-on-black theme)</li>
+<li>Play ▶️, Pause ⏸️, Step Back ⬅️, Step Forward ➡️, Clear in first row</li>
+<li>Block Size input + Resize button below</li>
+<li>Fill % input and color picker swatch in next row</li>
+<li>Fill region 3×3 grid of arrows + Quarters + Presets buttons</li>
+<li>Options arranged:</li>
+<ul>
+<li>Line 1: Toroidal</li>
+<li>Line 2: Rainbow, Trends</li>
+<li>Line 3: Aging, Birth Rate</li>
+<li>Line 4: PopRebal, Threshold %</li>
+</ul>
+<li>On-canvas gradient legend for Trends; no sidebar legend</li>
+</ul>
 
-  <h2>4) Editing & Fill Tools</h2>
-  <ul class="compact">
-    <li>Canvas editing: click toggles, drag paints with fill color.</li>
-    <li>Fill %: adds live cells in region; does not deactivate existing ones.</li>
-    <li>Regions: center, halves, quarters.</li>
-    <li>Color picker: sets fill/draw color; presets also use fill color initially.</li>
-  </ul>
+<h2>4. Controls & Editing</h2>
+<ul>
+<li>Click = draw; Shift+Click = erase; dragging supported</li>
+<li>Fill buttons activate percentage fill in selected region</li>
+<li>Fill does not clear existing board; re-fills are cumulative</li>
+<li>Clear button resets board and history</li>
+<li>Resizing preserves board contents (anchored top-left)</li>
+</ul>
 
-  <h2>5) Simulation Rules</h2>
-  <ul class="compact">
-    <li>Classic Life rules (3 births, 2-3 survival).</li>
-    <li>Toroidal wrapping if enabled.</li>
-    <li>One generation per frame when running.</li>
-  </ul>
+<h2>5. Simulation Rules</h2>
+<p>Standard Conway’s Life rules (B3/S23) unless modified by rebalancing:</p>
+<ul>
+<li>Cell survives with 2 or 3 neighbors</li>
+<li>Empty cell becomes alive with 3 neighbors</li>
+<li>Population rebalancing can modify thresholds (see Section 6)</li>
+</ul>
 
-  <h2>6) Aging & Population Rebalancing</h2>
-  <h3>Aging</h3>
-  <ul class="compact">
-    <li>Cells alive in all saved states across full history die of age.</li>
-    <li>Respawn placement: search outward rings until empty found.</li>
-    <li>Spawn count = Birth rate (BR) if PopRebal off.</li>
-    <li>Respawn color: Rainbow → neighbor average or dying cell; Non-Rainbow → fill color.</li>
-  </ul>
-  <h3>Population Rebalancing</h3>
-  <ul class="compact">
-    <li>Available only if Aging enabled.</li>
-    <li>If live% &lt; Fill% − Threshold → BR+1 spawns.</li>
-    <li>If within threshold → BR spawns.</li>
-    <li>If live% &gt; Fill% + Threshold → max(BR−1, 0) spawns.</li>
-  </ul>
+<h2>6. Aging & Population Rebalancing</h2>
+<ul>
+<li>Aging enabled: A cell dies if it was alive for the entire history window</li>
+<li>Birth Rate (BR): Number of new cells spawned per aged death (default 2)</li>
+<li>Population Rebalancing active only when Aging is enabled</li>
+<li>Rebalancing modifies births per aged death:</li>
+<ul>
+<li>Population &lt; Fill% − Threshold → BR+1</li>
+<li>Within range → BR</li>
+<li>Population &gt; Fill% + Threshold → BR−1 (min 0)</li>
+</ul>
+<li>Spawn placement: radial search outward from dying cell, randomizing candidates per ring</li>
+</ul>
 
-  <h2>7) Visualization Modes</h2>
-  <ul class="compact">
-    <li>Stored colors always maintained.</li>
-    <li>Rainbow births = neighbor average.</li>
-    <li>Non-Rainbow rendering uses stored colors.</li>
-    <li>Trends: color by fraction alive across history (gradient white→blue→teal→green→yellow→red with on-canvas legend).</li>
-  </ul>
+<h2>7. Visualization Modes</h2>
+<ul>
+<li><strong>Rainbow mode</strong>: New cell color = average of neighbors’ RGB; if from aging, average of neighbors else inherits dying cell color</li>
+<li><strong>Trends mode</strong>: Cells colored by activity fraction across history window; gradient white → blue → teal → green → yellow → orange → red</li>
+<li>Non-rainbow rendering displays stored cell colors (not just B/W)</li>
+</ul>
 
-  <h2>8) History & Bug Fix</h2>
-  <ul class="compact">
-    <li>User-set buffer (default 20).</li>
-    <li>Snapshots on edits, before stepping, after generations.</li>
-    <li>Bug fix: stepping back after drawing returns to drawn shape.</li>
-    <li>Clear wipes grid + history, adds snapshot for empty state.</li>
-  </ul>
+<h2>8. History & Stepping</h2>
+<ul>
+<li>20-step buffer, cursor-based navigation</li>
+<li>Step Back and Step Forward navigate snapshots</li>
+<li>Snapshots include board state, colors, and generation</li>
+<li>Clear clears board and history</li>
+<li>Bug fix: can step back to initial R-pentomino</li>
+</ul>
 
-  <h2>9) Diagnostics</h2>
-  <ul class="compact">
-    <li>Show: Generation, Live count, Grid size, Topology, Live %, FPS.</li>
-    <li>FPS updates each frame, persists when paused.</li>
-  </ul>
+<h2>9. Diagnostics</h2>
+<ul>
+<li>Diagnostic panel at bottom of sidebar, now <strong>stacked/narrow format</strong>:</li>
+<pre><code>FPS: 30.2 | Gen: 128
+Alive: 1200 (12.5%)
+Size: 80×60
+History: 10/20
+</code></pre>
+<li>FPS updated during play; persists when paused</li>
+</ul>
 
-  <h2>10) Favicon & Branding</h2>
-  <p>Blue block icon exported as GameOfLife.ico and PNGs. Include links in head. Cache-busting needed for updates.</p>
+<h2>10. Presets Feature</h2>
+<ul>
+<li>Presets button opens modal with pattern cards</li>
+<li>Patterns clear board + history and insert centered pattern</li>
+<li>Supports both coordinate lists and RLE parsing</li>
+</ul>
 
-  <h2>11) Keyboard Shortcuts</h2>
-  <ul class="compact">
-    <li>Space = Play/Pause</li>
-    <li>← = Step back</li>
-    <li>→ = Step forward</li>
-    <li>Disabled when focus in input field.</li>
-  </ul>
+<h2>11. Favicon & Branding</h2>
+<ul>
+<li>Uses GameOfLife.* icons (16, 32, 192, 512, apple-touch 180, ICO)</li>
+<li>Icon is R-pentomino, consistent with initial state</li>
+</ul>
 
-  <h2>12) Presets Feature</h2>
-  <p>Presets button opens modal with pattern list. Selecting one clears board + history, centers pattern, resets generation, and snapshots.</p>
-  <h3>Patterns</h3>
-  <ul class="compact">
-    <li>Still Lifes: Block, Beehive, Loaf, Boat</li>
-    <li>Oscillators: Blinker, Toad, Beacon, <strong>Pulsar</strong>, <strong>Pentadecathlon</strong></li>
-    <li>Spaceships: Glider, <strong>LWSS</strong>, <strong>MWSS</strong>, <strong>HWSS</strong></li>
-    <li>Guns & Engines: <strong>Gosper Glider Gun</strong>, <strong>Simkin Glider Gun</strong>, <strong>Puffer Train</strong></li>
-    <li>Chaotic seeds: R-pentomino, Diehard, Acorn, <strong>B-heptomino</strong>, <strong>Pi-heptomino</strong>, <strong>Herschel</strong></li>
-  </ul>
-  <p>See Appendix A for full coordinate sets (or canonical RLE encodings).</p>
+<h2>12. Keyboard Shortcuts</h2>
+<ul>
+<li>Space: Play/Pause</li>
+<li>Left Arrow: Step Back</li>
+<li>Right Arrow: Step Forward</li>
+</ul>
 
-  <h2>13) Pseudocode (Algorithms)</h2>
-  <p>Detailed pseudocode for neighbor counting, stepping, aging, rebalancing, trends rendering, history management, and preset placement remains as previously defined.</p>
-
-  <h2>14) Developer Notes</h2>
-  <ul class="compact">
-    <li>Use typed arrays for performance.</li>
-    <li>Canvas rendering in blockSize px squares.</li>
-    <li>Favicons cached; use ?v=2 when testing.</li>
-    <li>Accessibility: labels + shortcuts skip inputs.</li>
-  </ul>
-
-  <h2>15) Appendix A: Preset Pattern Coordinates</h2>
-  <p>This appendix defines each preset’s coordinates (relative to origin) or provides canonical RLE encodings from LifeWiki for large patterns.</p>
-
-  <h3>A.1 Small & Medium Patterns (coordinate arrays)</h3>
-  <pre><code>
-Block: [ [0,0],[0,1],[1,0],[1,1] ]
-Beehive: [ [0,1],[0,2],[1,0],[1,3],[2,1],[2,2] ]
-Loaf: [ [0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2] ]
-Boat: [ [0,0],[0,1],[1,0],[1,2],[2,1] ]
-
-Blinker: [ [0,-1],[0,0],[0,1] ]
-Toad: [ [0,1],[0,2],[0,3],[1,0],[1,1],[1,2] ]
-Beacon: [ [0,0],[0,1],[1,0],[2,3],[3,2],[3,3] ]
-
-Glider: [ [0,1],[1,2],[2,0],[2,1],[2,2] ]
-
-R-pentomino: [ [0,1],[0,2],[1,0],[1,1],[2,1] ]
-Diehard: [ [0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7] ]
-Acorn: [ [0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6] ]
+<h2>13. Pseudocode</h2>
+<h3>Simulation Step</h3>
+<pre><code>function stepOnce():
+  measure current alive%
+  adjust rules if rebalancing+aging active
+  for each cell:
+    count neighbors (wrap if toroidal)
+    apply rules:
+      - alive cell survives (2 or 3 neighbors, or ≥3 if modified)
+      - dead cell born (3 neighbors, or 2–3 if modified low-pop rule)
+    assign color:
+      - rainbow: average neighbor colors
+      - non-rainbow: fill color
+  if aging enabled and history full:
+    for each cell alive full history:
+      kill cell
+      compute spawns = BR (± per rebalancing)
+      place new cells by radial search
+      color new cells = avg neighbors or dying color
+  increment generation
 </code></pre>
 
-  <h3>A.2 Large Oscillators & Spaceships (RLE encodings)</h3>
-  <p class="cite">RLE is the canonical format used by LifeWiki; these encodings can be parsed to coordinates at load-time.</p>
-
-  <h4>Pulsar (p3 oscillator)</h4>
-  <pre><code>RLE: See LifeWiki “Pulsar” page for canonical RLE.</code></pre>
-
-  <h4>Pentadecathlon (p15 oscillator)</h4>
-  <pre><code>RLE: See LifeWiki “Pentadecathlon” page for canonical RLE.</code></pre>
-
-  <h4>Lightweight Spaceship (LWSS)</h4>
-  <pre><code>RLE: See LifeWiki “Lightweight spaceship” page for canonical RLE.</code></pre>
-
-  <h4>Middleweight Spaceship (MWSS)</h4>
-  <pre><code>RLE: See LifeWiki “Middleweight spaceship” page for canonical RLE.</code></pre>
-
-  <h4>Heavyweight Spaceship (HWSS)</h4>
-  <pre><code>RLE: See LifeWiki “Heavyweight spaceship” page for canonical RLE.</code></pre>
-
-  <h3>A.3 Guns & Engines (RLE)</h3>
-
-  <h4>Gosper Glider Gun</h4>
-  <pre><code>x = 36, y = 20, rule = B3/S23
-9bo$7bobo$8b2o5$16bo$17bo$15b3o2$23bobo$21bo3bo$13bo7bo$12b4o4bo4bo8b2o$11b2obobo4bo12b2o$2o8b3obo2bo3bo3bo$2o9b2obobo6bobo$12b4o$13bo!
+<h3>History Management</h3>
+<pre><code>pushSnap():
+  if cursor not at tip, truncate redo branch
+  append deep copy of grid/colors/gen
+  trim to historyCap
+  move cursor to last
 </code></pre>
-  <div class="cite">Source: LifeWiki Gosper glider gun page (RLE block), retrieved 2025-09-01.</div>
 
-  <h4>Simkin Glider Gun</h4>
-  <pre><code>RLE: See LifeWiki “Simkin glider gun” page for canonical RLE.</code></pre>
+<h3>Trend Coloring</h3>
+<pre><code>for each cell:
+  frac = alive_count_in_history / window_size
+  color = gradient(frac)
+</code></pre>
 
-  <h4>Puffer Train</h4>
-  <pre><code>RLE: See LifeWiki page for a standard “Puffer train” (e.g., puffer 1) canonical RLE.</code></pre>
+<h3>Radial Spawn Placement</h3>
+<pre><code>function findRadialEmpty(r,c):
+  for d=1 to max(rows,cols):
+    collect perimeter cells distance d
+    shuffle perimeter list
+    return first empty cell
+  return null
+</code></pre>
 
-  <h3>A.4 Additional Long-Evolution Seeds (RLE or coordinates)</h3>
-  <p>Include additional small seeds with long evolutions:</p>
-  <ul>
-    <li>B-heptomino — RLE from LifeWiki</li>
-    <li>Pi-heptomino — RLE from LifeWiki</li>
-    <li>Herschel — RLE from LifeWiki</li>
-  </ul>
-  <p class="cite">Coordinate extraction: parse RLE → generate relative (row,col) arrays at runtime during preset insertion.</p>
+<h2>Appendix A. Preset Pattern Definitions</h2>
+<h3>A.1 Coordinates</h3>
+<ul>
+<li>Block, Beehive, Loaf, Boat</li>
+<li>Blinker, Toad, Beacon</li>
+<li>Glider, LWSS</li>
+<li>R-pentomino, Diehard, Acorn</li>
+</ul>
+<h3>A.2 RLE</h3>
+<ul>
+<li>Pulsar (p3 oscillator)</li>
+<li>Pentadecathlon (p15)</li>
+<li>Gosper Glider Gun (p30 gun)</li>
+</ul>
+<p>Other patterns (MWSS, HWSS, Simkin gun, Puffer Train, etc.) can be added via RLE in the same system.</p>
 
 </body>
 </html>

@@ -37,7 +37,7 @@
   .grid3{display:grid;grid-template-columns:repeat(3,34px);grid-auto-rows:34px;gap:6px}
   .grid3 button{padding:0;font-size:18px;background:var(--btn);border:1px solid var(--btn2);border-radius:8px;color:var(--text);cursor:pointer}
   .grid3 button:hover{background:#222}
-  .diag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);margin-top:6px}
+  .diag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);margin-top:6px;white-space:pre-line}
   .divider{height:1px;background:#1a1a1a;margin:10px 0}
   /* Modal */
   .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
@@ -110,7 +110,10 @@
     </div>
 
     <div class="divider"></div>
-    <div id="diag" class="diag">FPS: 0 | Gen: 0 | Alive: 0 (0.0%) | Size: 0×0 | History: 0/20</div>
+    <div id="diag" class="diag">FPS: 0 | Gen: 0
+Alive: 0 (0.0%)
+Size: 0×0
+History: 0/20</div>
   </aside>
 
   <main>
@@ -223,7 +226,13 @@
   function updateDiag(){
     const alive = grid.reduce((a,b)=>a+b,0);
     const pct = (alive*100/(rows*cols))||0;
-    $('#diag').textContent = `FPS: ${fps.toFixed(1)} | Gen: ${generation} | Alive: ${alive} (${pct.toFixed(1)}%) | Size: ${cols}×${rows} | History: ${cursor+1}/${historyCap}`;
+    const lines = [
+      `FPS: ${fps.toFixed(1)} | Gen: ${generation}`,
+      `Alive: ${alive} (${pct.toFixed(1)}%)`,
+      `Size: ${cols}×${rows}`,
+      `History: ${cursor+1}/${historyCap}`
+    ];
+    $('#diag').textContent = lines.join('\\n');
   }
   function updateButtons(){
     btnStepB.disabled = cursor<=0 || running;
@@ -294,17 +303,14 @@
       ctx.moveTo(0,(rows*b)/2); ctx.lineTo(cols*b,(rows*b)/2);
       ctx.stroke();
     }
-    // faint grid lines
     if (b>=16){
       ctx.strokeStyle='rgba(255,255,255,0.06)';
       for (let x=0;x<=cols;x++){ ctx.beginPath(); ctx.moveTo(x*b,0); ctx.lineTo(x*b,rows*b); ctx.stroke(); }
-      for (let y=0;y<=rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*b); ctx.lineTo(cols*b,y); ctx.stroke(); }
-    }
-    if (trends){
-      drawLegendCanvas(8, Math.max(8, rows*b - 30), 160, 10);
+      for (let y=0;y<=rows;y++){ ctx.beginPath(); ctx.moveTo(0,y*b); ctx.lineTo(cols*b,y*b); ctx.stroke(); }
     }
   }
   function trendColor(frac){
+    // same gradient stops as before
     const stops = [
       {r:255,g:255,b:255},
       {r:179,g:229,b:255},
@@ -320,18 +326,6 @@
     const a=stops[i], b=stops[j];
     const rr=Math.round(a.r+(b.r-a.r)*f), gg=Math.round(a.g+(b.g-a.g)*f), bb=Math.round(a.b+(b.b-a.b)*f);
     return `rgb(${rr},${gg},${bb})`;
-  }
-  function drawLegendCanvas(x,y,w,h){
-    const g=ctx.createLinearGradient(x,y,x+w,y);
-    g.addColorStop(0,'#ffffff'); g.addColorStop(.14,'#b3e5ff'); g.addColorStop(.28,'#47d7ff');
-    g.addColorStop(.42,'#1ccbaa'); g.addColorStop(.56,'#8ce91c'); g.addColorStop(.7,'#ffe54d');
-    g.addColorStop(.85,'#ff7a45'); g.addColorStop(1,'#ff1f1f');
-    ctx.fillStyle=g; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#555'; ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle='#fff'; ctx.font='10px system-ui,sans-serif';
-    ['0%','25%','50%','75%','100%'].forEach((t,ix)=>{
-      const tx=x+Math.round((ix*0.25)*w);
-      ctx.fillText(t, tx-8,y+h+10);
-    });
   }
 
   // --- Simulation ---
@@ -598,7 +592,6 @@
   }
 
   function insertPreset(pat){
-    // clear board & history
     grid.fill(0); colors.fill(0); generation=0; snaps=[]; cursor=-1;
     let cells=[];
     if (pat.type==='coords') cells = pat.cells;
@@ -666,7 +659,7 @@
   // --- Initial load: center R-pentomino, no random fill ---
   function placeInitialRPentomino(){
     const cells = [[0,1],[0,2],[1,0],[1,1],[2,1]];
-    const h = 3, w = 3; // bounding box for R-pentomino coordinates above
+    const h = 3, w = 3;
     const offR = Math.floor((rows - h)/2);
     const offC = Math.floor((cols - w)/2);
     for (const [r,c] of cells){
@@ -684,9 +677,7 @@
     inputBR.disabled=!opts.aging; chkRebal.disabled=!opts.aging; inputThresh.disabled=!(opts.aging&&opts.rebal);
     btnColor.style.background = `rgb(${opts.fillColor.r},${opts.fillColor.g},${opts.fillColor.b})`;
     window.addEventListener('resize', setCanvas);
-    // First canvas sizing creates grid but preserves content; we want to place R-pentomino after first sizing
     setCanvas();
-    // If history empty, place R-pentomino once
     if (snaps.length===0 || cursor<0){
       placeInitialRPentomino();
       generation=0; snaps=[]; cursor=-1; pushSnap(); recalcActivity(); draw(); updateDiag();
