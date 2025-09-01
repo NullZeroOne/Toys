@@ -3,50 +3,34 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Conway's Game of Life — Extended</title>
-<link rel="icon" href="GameOfLife-32.png" sizes="32x32" type="image/png">
-<link rel="icon" href="GameOfLife-16.png" sizes="16x16" type="image/png">
-<link rel="shortcut icon" href="GameOfLife.ico" type="image/x-icon">
-<link rel="apple-touch-icon" href="GameOfLife-apple-touch-180.png" sizes="180x180">
+<title>Conway's Game of Life — Single-File</title>
 <meta name="theme-color" content="#000000">
 <style>
-  :root{
-    --bg:#000; --panel:#111; --muted:#b9c2cf; --text:#fff;
-    --grid:#1a1a1a; --btn:#161616; --btn2:#2a2a2a; --accent:#2f6feb;
-    --border:#222;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-  .app{display:flex;height:100%}
-  aside{width:340px;max-width:40vw;background:var(--panel);border-right:1px solid var(--border);padding:10px;overflow:auto}
+  :root{--bg:#000;--panel:#111;--muted:#b9c2cf;--text:#fff;--btn:#161616;--btn2:#2a2a2a;--border:#222}
+  *{box-sizing:border-box} html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  .app{display:flex;height:100%} aside{width:340px;max-width:40vw;background:var(--panel);border-right:1px solid var(--border);padding:10px;overflow:auto}
   main{flex:1;display:flex;flex-direction:column;min-width:0}
   header{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;gap:10px;align-items:center}
-  .spacer{flex:1}
-  .pill{padding:5px 8px;border-radius:999px;background:#0f0f0f;border:1px solid #222;color:var(--muted);font-size:12px}
+  .spacer{flex:1} .pill{padding:5px 8px;border-radius:999px;background:#0f0f0f;border:1px solid #222;color:var(--muted);font-size:12px}
   canvas{display:block;flex:1;background:#000;image-rendering:pixelated}
   h3{margin:10px 0 4px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
   .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .controls button{padding:6px 9px;border-radius:8px;background:var(--btn);border:1px solid var(--btn2);color:var(--text);cursor:pointer}
-  .controls button:hover{background:#222}
-  .controls button:disabled{opacity:.55;cursor:not-allowed}
+  .controls button:hover{background:#222} .controls button:disabled{opacity:.55;cursor:not-allowed}
   input[type="number"]{width:70px;padding:6px 8px;border-radius:8px;border:1px solid #2a2a2a;background:#0b0b0b;color:var(--text)}
-  input[type="checkbox"]{transform:translateY(1px)}
-  label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-  .narrow input[type="number"]{width:64px}
-  .swatch{width:26px;height:26px;border-radius:6px;border:1px solid #2a2a2a;background:#fff;cursor:pointer}
+  input[type="checkbox"]{transform:translateY(1px)} label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .narrow input[type="number"]{width:64px} .swatch{width:26px;height:26px;border-radius:6px;border:1px solid #2a2a2a;background:#fff;cursor:pointer}
   .grid3{display:grid;grid-template-columns:repeat(3,34px);grid-auto-rows:34px;gap:6px}
   .grid3 button{padding:0;font-size:18px;background:var(--btn);border:1px solid var(--btn2);border-radius:8px;color:var(--text);cursor:pointer}
   .grid3 button:hover{background:#222}
   .diag{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);margin-top:6px;white-space:pre}
   .divider{height:1px;background:#1a1a1a;margin:10px 0}
-  /* Modal */
   .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
   .modal{width:min(900px, calc(100% - 24px));max-height:80vh;overflow:auto;background:var(--panel);border:1px solid #2a2a2a;border-radius:12px;box-shadow:0 12px 50px rgba(0,0,0,.6)}
   .modal header{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--panel);z-index:1;padding:10px 12px;border-bottom:1px solid var(--border)}
   .preset-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:12px}
   .card{border:1px solid #2a2a2a;background:#0b0b0b;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
-  .card h4{margin:0;font-size:14px}
-  .card small{color:var(--muted)}
+  .card h4{margin:0;font-size:14px} .card small{color:var(--muted)}
   .tiny{padding:5px 8px;border-radius:7px;background:var(--btn);border:1px solid var(--btn2);color:var(--text);cursor:pointer}
 </style>
 </head>
@@ -60,19 +44,15 @@
       <button id="btnStepForward" title="Step Forward">➡️</button>
       <button id="btnClear" title="Clear board & history">Clear</button>
     </div>
-
     <div class="row narrow" style="margin-top:8px;">
       <label>Block Size <input type="number" id="inputBlock" min="1" step="1" value="15"></label>
       <button id="btnResize" class="tiny" title="Resize grid to fit">Resize</button>
     </div>
-
     <div class="divider"></div>
-
     <div class="row narrow">
       <label>Fill % <input type="number" id="inputFillPct" min="0" max="100" step="1" value="10"></label>
       <button id="btnColor" class="swatch" title="Fill & draw color"></button>
     </div>
-
     <h3>Fill Region</h3>
     <div class="grid3">
       <button data-fill="ul" title="Top-Left">↖</button>
@@ -89,13 +69,8 @@
       <button id="btnQuarters" class="tiny">Quarters</button>
       <button id="btnPresets" class="tiny">Presets</button>
     </div>
-
     <div class="divider"></div>
-
-    <!-- Options arranged as requested -->
-    <div class="row">
-      <label><input type="checkbox" id="chkToroidal" checked> Toroidal</label>
-    </div>
+    <div class="row"><label><input type="checkbox" id="chkToroidal" checked> Toroidal</label></div>
     <div class="row" style="margin-top:6px;">
       <label><input type="checkbox" id="chkRainbow"> Rainbow</label>
       <label><input type="checkbox" id="chkTrends"> Trends</label>
@@ -108,14 +83,12 @@
       <label><input type="checkbox" id="chkRebal"> PopRebal</label>
       <label>Threshold % <input type="number" id="inputThresh" min="0" max="50" step="1" value="5"></label>
     </div>
-
     <div class="divider"></div>
     <div id="diag" class="diag">FPS: 0.0 | Gen: 0
 Alive: 0 (0.0%)
 Size: 0×0
 History: 0/20</div>
   </aside>
-
   <main>
     <header>
       <strong>Conway's Game of Life</strong>
@@ -127,7 +100,6 @@ History: 0/20</div>
   </main>
 </div>
 
-<!-- Presets Modal -->
 <div class="backdrop" id="modal">
   <div class="modal">
     <header>
@@ -144,180 +116,74 @@ History: 0/20</div>
   const $$ = s=>Array.from(document.querySelectorAll(s));
   const canvas = $('#board'); const ctx = canvas.getContext('2d',{alpha:false});
 
-  // --- Options / Defaults ---
-  let blockSize = 15;
-  let historyCap = 20;
-  let running = false;
-  let initialized = false; // avoid clobbering initial snapshot on first setCanvas
-  const opts = {
-    toroidal: true,
-    rainbow: false,
-    trends: false,
-    aging: false,
-    rebal: false,
-    BR: 2,
-    thresh: 5,
-    fillPct: 10,
-    fillColor: {r:255,g:255,b:255} // white on black
-  };
+  let blockSize = 15; let historyCap = 20; let running = false; let initialized=false;
+  const opts = { toroidal:true, rainbow:false, trends:false, aging:false, rebal:false, BR:2, thresh:5, fillPct:10, fillColor:{r:255,g:255,b:255} };
 
-  // --- Grid state ---
-  let rows=0, cols=0;
-  let grid = new Uint8Array(0);
-  let colors = new Uint32Array(0); // packRGB
-  let generation = 0;
-  let activity = new Uint16Array(0); // for trends
+  let rows=0, cols=0; let grid=new Uint8Array(0); let colors=new Uint32Array(0); let generation=0; let activity=new Uint16Array(0);
+  let snaps=[]; let cursor=-1; let fps=0;
 
-  // --- History with cursor ---
-  let snaps = []; // array of {g:Uint8Array, c:Uint32Array, gen:Number}
-  let cursor = -1;
-
-  // --- Timing / FPS ---
-  let fps = 0;
-
-  // --- UI bindings ---
-  const btnPlay=$('#btnPlay'), btnPause=$('#btnPause'),
-        btnStepF=$('#btnStepForward'), btnStepB=$('#btnStepBack'),
-        btnClear=$('#btnClear'), btnResize=$('#btnResize'),
-        btnColor=$('#btnColor'), inputBlock=$('#inputBlock'),
-        inputFillPct=$('#inputFillPct'), chkToroidal=$('#chkToroidal'),
-        chkRainbow=$('#chkRainbow'), chkTrends=$('#chkTrends'),
-        chkAging=$('#chkAging'), inputBR=$('#inputBR'),
-        chkRebal=$('#chkRebal'), inputThresh=$('#inputThresh'),
+  const btnPlay=$('#btnPlay'), btnPause=$('#btnPause'), btnStepF=$('#btnStepForward'), btnStepB=$('#btnStepBack'), btnClear=$('#btnClear'), btnResize=$('#btnResize'),
+        btnColor=$('#btnColor'), inputBlock=$('#inputBlock'), inputFillPct=$('#inputFillPct'), chkToroidal=$('#chkToroidal'), chkRainbow=$('#chkRainbow'),
+        chkTrends=$('#chkTrends'), chkAging=$('#chkAging'), inputBR=$('#inputBR'), chkRebal=$('#chkRebal'), inputThresh=$('#inputThresh'),
         btnQuarters=$('#btnQuarters'), btnPresets=$('#btnPresets');
 
-  // --- Helpers ---
-  const idx = (r,c)=>r*cols+c;
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const packRGB=(r,g,b)=>(255<<24)|(b<<16)|(g<<8)|(r);
-  const unpack=(u)=>`rgb(${u&255},${(u>>8)&255},${(u>>16)&255})`;
+  const idx=(r,c)=>r*cols+c; const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const packRGB=(r,g,b)=>(255<<24)|(b<<16)|(g<<8)|(r); const unpack=(u)=>`rgb(${u&255},${(u>>8)&255},${(u>>16)&255})`;
 
   function setCanvas(){
     const dpr = Math.max(1, window.devicePixelRatio||1);
     const rect = canvas.getBoundingClientRect();
-    const newW = Math.floor(rect.width*dpr);
-    const newH = Math.floor((window.innerHeight - rect.top)*dpr);
-    const prevCols = cols, prevRows = rows, prevGrid = grid, prevColors = colors;
+    const newW = Math.floor(rect.width*dpr), newH = Math.floor((window.innerHeight - rect.top)*dpr);
+    const prevCols=cols, prevRows=rows, prevGrid=grid, prevColors=colors;
 
-    canvas.width = newW; canvas.height = newH;
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-
+    canvas.width=newW; canvas.height=newH; ctx.setTransform(dpr,0,0,dpr,0,0);
     const newCols = Math.max(2, Math.floor(newW/(blockSize*dpr)));
     const newRows = Math.max(2, Math.floor(newH/(blockSize*dpr)));
     if (newCols===cols && newRows===rows) return;
 
-    // CENTER-ANCHORED PRESERVATION
-    const newGrid = new Uint8Array(newRows*newCols);
-    const newColors = new Uint32Array(newRows*newCols);
-
-    const copyRows = Math.min(prevRows||0, newRows);
-    const copyCols = Math.min(prevCols||0, newCols);
-    const rowOffset = Math.floor((newRows - copyRows)/2);
-    const colOffset = Math.floor((newCols - copyCols)/2);
-
-    for (let r=0;r<copyRows;r++){
-      for (let c=0;c<copyCols;c++){
-        const srcIdx = r*(prevCols||copyCols)+c;
-        const rr = r + rowOffset;
-        const cc = c + colOffset;
-        const dstIdx = rr*newCols + cc;
-        newGrid[dstIdx]  = prevGrid ? prevGrid[srcIdx] : 0;
-        newColors[dstIdx]= prevColors ? prevColors[srcIdx] : 0;
-      }
+    const newGrid=new Uint8Array(newRows*newCols), newColors=new Uint32Array(newRows*newCols);
+    const copyRows=Math.min(prevRows||0,newRows), copyCols=Math.min(prevCols||0,newCols);
+    const ro=Math.floor((newRows-copyRows)/2), co=Math.floor((newCols-copyCols)/2);
+    for(let r=0;r<copyRows;r++) for(let c=0;c<copyCols;c++){
+      const s=r*(prevCols||copyCols)+c, rr=r+ro, cc=c+co, d=rr*newCols+cc;
+      newGrid[d]=prevGrid?prevGrid[s]:0; newColors[d]=prevColors?prevColors[s]:0;
     }
-
-    cols=newCols; rows=newRows;
-    grid = newGrid; colors=newColors;
-    activity = new Uint16Array(rows*cols);
-
-    // After real resize, rebuild history to match new dims
-    if (initialized){
-      snaps=[]; cursor=-1;
-      pushSnap(); // snapshot the resized grid
-      recalcActivity();
-    }
+    cols=newCols; rows=newRows; grid=newGrid; colors=newColors; activity=new Uint16Array(rows*cols);
+    if (initialized){ snaps=[]; cursor=-1; pushSnap(); recalcActivity(); }
     draw(); updateDiag();
   }
 
   function updateDiag(){
-    const alive = grid.reduce((a,b)=>a+b,0);
-    const pct = (alive*100/(rows*cols))||0;
-    const lines = [
-      `FPS: ${fps.toFixed(1)} | Gen: ${generation}`,
-      `Alive: ${alive} (${pct.toFixed(1)}%)`,
-      `Size: ${cols}×${rows}`,
-      `History: ${cursor+1}/${historyCap}`
-    ];
-    document.getElementById('diag').textContent = lines.join('\n');
+    const alive = grid.reduce((a,b)=>a+b,0); const pct=(alive*100/(rows*cols))||0;
+    const lines=[`FPS: ${fps.toFixed(1)} | Gen: ${generation}`, `Alive: ${alive} (${pct.toFixed(1)}%)`, `Size: ${cols}×${rows}`, `History: ${cursor+1}/${historyCap}`];
+    $('#diag').textContent = lines.join('\n');
   }
-  function updateButtons(){
-    btnStepB.disabled = cursor<=0 || running;
-    btnStepF.disabled = running?false:false;
-  }
+  function updateButtons(){ btnStepB.disabled = cursor<=0 || running; }
 
-  // --- History management ---
   function pushSnap(){
     if (cursor < snaps.length-1) snaps = snaps.slice(0,cursor+1);
     snaps.push({ g: Uint8Array.from(grid), c: Uint32Array.from(colors), gen: generation });
     while (snaps.length > historyCap){ snaps.shift(); cursor=Math.max(0,cursor-1); }
-    cursor = snaps.length-1;
-    updateButtons();
+    cursor=snaps.length-1; updateButtons();
   }
   function loadSnap(i){
-    if (i<0 || i>=snaps.length) return;
-    cursor = i;
-    const S = snaps[cursor];
-    grid = Uint8Array.from(S.g);
-    colors = Uint32Array.from(S.c);
-    generation = S.gen;
-    recalcActivity();
-    draw();
-    updateDiag();
-    updateButtons();
+    if (i<0||i>=snaps.length) return;
+    cursor=i; const S=snaps[cursor];
+    grid=Uint8Array.from(S.g); colors=Uint32Array.from(S.c); generation=S.gen; recalcActivity(); draw(); updateDiag(); updateButtons();
   }
-
-  // --- Trends activity recompute ---
   function recalcActivity(){
-    activity.fill(0);
-    const start = Math.max(0, (cursor+1) - historyCap);
-    for (let h=start; h<=cursor; h++){
-      const S = snaps[h];
-      const len = Math.min(S.g.length, activity.length);
-      for (let i=0;i<len;i++){ if (S.g[i]===1) activity[i]++; }
-    }
+    activity.fill(0); const start=Math.max(0,(cursor+1)-historyCap);
+    for(let h=start; h<=cursor; h++){ const S=snaps[h], len=Math.min(S.g.length,activity.length); for(let i=0;i<len;i++) if(S.g[i]===1) activity[i]++; }
   }
 
-  // --- Drawing ---
-  let showQuarters = false;
   function draw(){
-    ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    const b = blockSize;
-    const trends = opts.trends;
-    const windowKnown = (cursor>=0)? (cursor - Math.max(0,(cursor+1)-historyCap) + 1) : 0;
-
-    for (let r=0;r<rows;r++){
-      for (let c=0;c<cols;c++){
-        const i = idx(r,c);
-        let fill = null;
-        if (trends && windowKnown>0){
-          const frac = activity[i]/windowKnown;
-          fill = trendColor(frac);
-        } else if (grid[i]===1){
-          const u = colors[i] || packRGB(opts.fillColor.r, opts.fillColor.g, opts.fillColor.b);
-          fill = unpack(u);
-        }
-        if (fill){
-          ctx.fillStyle=fill;
-          ctx.fillRect(c*b,r*b,b,b);
-        }
-      }
-    }
-    if (showQuarters){
-      ctx.strokeStyle='rgba(255,255,255,0.14)';
-      ctx.beginPath();
-      ctx.moveTo((cols*b)/2,0); ctx.lineTo((cols*b)/2,rows*b);
-      ctx.moveTo(0,(rows*b)/2); ctx.lineTo(cols*b,(rows*b)/2);
-      ctx.stroke();
+    const b=blockSize; ctx.fillStyle='#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const known = (cursor>=0)? (cursor - Math.max(0,(cursor+1)-historyCap) + 1) : 0;
+    for (let r=0;r<rows;r++) for (let c=0;c<cols;c++){
+      const i=idx(r,c); let fill=null;
+      if (opts.trends && known>0){ const frac=activity[i]/known; fill=trendColor(frac); }
+      else if (grid[i]===1){ fill=unpack(colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b)); }
+      if (fill){ ctx.fillStyle=fill; ctx.fillRect(c*b,r*b,b,b); }
     }
     if (b>=16){
       ctx.strokeStyle='rgba(255,255,255,0.06)';
@@ -326,220 +192,118 @@ History: 0/20</div>
     }
   }
   function trendColor(frac){
-    const stops = [
-      {r:255,g:255,b:255},
-      {r:179,g:229,b:255},
-      {r:71,g:215,b:255},
-      {r:28,g:203,b:170},
-      {r:140,g:233,b:28},
-      {r:255,g:229,b:77},
-      {r:255,g:122,b:69},
-      {r:255,g:31,b:31}
-    ];
-    const t = Math.max(0,Math.min(1,frac))*(stops.length-1);
-    const i = Math.floor(t), j=Math.min(stops.length-1,i+1), f=t-i;
-    const a=stops[i], b=stops[j];
-    const rr=Math.round(a.r+(b.r-a.r)*f), gg=Math.round(a.g+(b.g-a.g)*f), bb=Math.round(a.b+(b.b-a.b)*f);
+    const stops=[{r:255,g:255,b:255},{r:179,g:229,b:255},{r:71,g:215,b:255},{r:28,g:203,b:170},{r:140,g:233,b:28},{r:255,g:229,b:77},{r:255,g:122,b:69},{r:255,g:31,b:31}];
+    const t=Math.max(0,Math.min(1,frac))*(stops.length-1), i=Math.floor(t), j=Math.min(stops.length-1,i+1), f=t-i;
+    const a=stops[i], b=stops[j]; const rr=Math.round(a.r+(b.r-a.r)*f), gg=Math.round(a.g+(b.g-a.g)*f), bb=Math.round(a.b+(b.b-a.b)*f);
     return `rgb(${rr},${gg},${bb})`;
   }
 
-  // --- Simulation ---
   const nbr=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
   const inside=(r,c)=>r>=0&&r<rows&&c>=0&&c<cols;
-  function wrap(r,c){
-    if (opts.toroidal){ r=(r+rows)%rows; c=(c+cols)%cols; return [r,c]; }
-    if (!inside(r,c)) return null; return [r,c];
-  }
+  function wrap(r,c){ if(opts.toroidal){ r=(r+rows)%rows; c=(c+cols)%cols; return [r,c]; } if(!inside(r,c)) return null; return [r,c]; }
 
   function stepOnce(){
-    const next = new Uint8Array(rows*cols);
-    const nextC = new Uint32Array(rows*cols);
-    // measure alive%
-    let aliveCount=0; for (let i=0;i<grid.length;i++) if (grid[i]===1) aliveCount++;
-    const alivePct = (aliveCount*100)/(rows*cols);
-    const low = opts.fillPct - opts.thresh, high = opts.fillPct + opts.thresh;
+    const next=new Uint8Array(rows*cols), nextC=new Uint32Array(rows*cols);
+    let aliveCount=0; for(let i=0;i<grid.length;i++) if(grid[i]===1) aliveCount++;
+    const alivePct=(aliveCount*100)/(rows*cols), low=opts.fillPct-opts.thresh, high=opts.fillPct+opts.thresh;
     let birthsNeedTwo=false, surviveRequireAtLeast3=false;
-    if (opts.rebal && opts.aging){
-      if (alivePct < low) birthsNeedTwo = true;
-      else if (alivePct > high) surviveRequireAtLeast3 = true;
-    }
-    // compute births/survivals
-    for (let r=0;r<rows;r++){
-      for (let c=0;c<cols;c++){
-        let n=0, ar=0,ag=0,ab=0, cnt=0;
-        for (const [dr,dc] of nbr){
-          const pos=wrap(r+dr,c+dc); if(!pos) continue;
-          const [rr,cc]=pos; const k=idx(rr,cc);
-          if (grid[k]===1){ n++; const u=colors[k]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-            ar+=(u&255); ag+=((u>>8)&255); ab+=((u>>16)&255); cnt++; }
-        }
-        const i=idx(r,c);
-        if (grid[i]===1){
-          let live = (n===2||n===3);
-          if (surviveRequireAtLeast3) live = (n>=3);
-          if (live){ next[i]=1; nextC[i]=colors[i]; }
-        }else{
-          let born=(n===3);
-          if (birthsNeedTwo) born=(n===2||n===3);
-          if (born){
-            next[i]=1;
-            if (opts.rainbow && cnt>0){
-              nextC[i]=packRGB(Math.round(ar/cnt),Math.round(ag/cnt),Math.round(ab/cnt));
-            }else{
-              nextC[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-            }
-          }
-        }
+    if (opts.rebal && opts.aging){ if(alivePct<low) birthsNeedTwo=true; else if(alivePct>high) surviveRequireAtLeast3=true; }
+
+    for (let r=0;r<rows;r++) for (let c=0;c<cols;c++){
+      let n=0, ar=0,ag=0,ab=0, cnt=0;
+      for (const [dr,dc] of nbr){ const pos=wrap(r+dr,c+dc); if(!pos) continue; const [rr,cc]=pos, k=idx(rr,cc);
+        if(grid[k]===1){ n++; const u=colors[k]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b); ar+=(u&255); ag+=((u>>8)&255); ab+=((u>>16)&255); cnt++; } }
+      const i=idx(r,c);
+      if (grid[i]===1){
+        let live=(n===2||n===3); if(surviveRequireAtLeast3) live=(n>=3);
+        if(live){ next[i]=1; nextC[i]=colors[i]; }
+      }else{
+        let born=(n===3); if(birthsNeedTwo) born=(n===2||n===3);
+        if(born){ next[i]=1; if(opts.rainbow && cnt>0){ nextC[i]=packRGB(Math.round(ar/cnt),Math.round(ag/cnt),Math.round(ab/cnt)); }
+                  else { nextC[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b); } }
       }
     }
 
-    // Aging
     if (opts.aging){
       if (cursor+1 >= historyCap){
-        const start = (cursor+1)-historyCap;
-        const aliveCounts = new Uint16Array(rows*cols);
-        for (let h=start; h<=cursor; h++){
-          const S = snaps[h];
-          const len = Math.min(S.g.length, aliveCounts.length);
-          for (let i=0;i<len;i++) if (S.g[i]===1) aliveCounts[i]++;
-        }
+        const start=(cursor+1)-historyCap; const aliveCounts=new Uint16Array(rows*cols);
+        for(let h=start; h<=cursor; h++){ const S=snaps[h]; const len=Math.min(S.g.length,aliveCounts.length); for(let i=0;i<len;i++) if(S.g[i]===1) aliveCounts[i]++; }
         const toSpawn=[];
-        for (let i=0;i<next.length;i++){
-          if (next[i]===1 && aliveCounts[i]===historyCap){
-            const r=Math.floor(i/cols), c=i%cols;
-            const inherit = colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-            next[i]=0;
-            let spawns=opts.BR;
-            if (opts.rebal){
-              if (alivePct<low) spawns=opts.BR+1;
-              else if (alivePct>high) spawns=Math.max(0,opts.BR-1);
-              else spawns=opts.BR;
-            }
+        for(let i=0;i<next.length;i++){
+          if(next[i]===1 && aliveCounts[i]===historyCap){
+            const r=Math.floor(i/cols), c=i%cols, inherit=colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
+            next[i]=0; let spawns=opts.BR; const low=opts.fillPct-opts.thresh, high=opts.fillPct+opts.thresh;
+            if(opts.rebal){ const alivePct2=(aliveCount*100)/(rows*cols); if(alivePct2<low) spawns=opts.BR+1; else if(alivePct2>high) spawns=Math.max(0,opts.BR-1); }
             toSpawn.push({r,c,spawns,inherit});
           }
         }
         for (const t of toSpawn){
-          for (let s=0;s<t.spawns;s++){
-            const p=findRadialEmpty(t.r,t.c,next);
-            if (!p) break;
-            const [rr,cc]=p, k=idx(rr,cc);
-            next[k]=1;
-            const nc = neighborColorAvg(rr,cc,next,nextC);
-            if (nc){ nextC[k]=packRGB(nc.r,nc.g,nc.b); } else { nextC[k]=t.inherit; }
-          }
+          for(let s=0;s<t.spawns;s++){ const p=findRadialEmpty(t.r,t.c,next); if(!p) break; const [rr,cc]=p,k=idx(rr,cc); next[k]=1;
+            const nc=neighborColorAvg(rr,cc,next,nextC); nextC[k] = nc? packRGB(nc.r,nc.g,nc.b) : t.inherit; }
         }
       }
     }
 
-    grid = next; colors = nextC; generation++;
+    grid=next; colors=nextC; generation++;
   }
-
   function neighborColorAvg(r,c,aliveArr,colorArr){
-    let rr=0,gg=0,bb=0,count=0;
-    for (const [dr,dc] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]){
-      const pos=wrap(r+dr,c+dc); if(!pos) continue;
-      const [r2,c2]=pos; const i=idx(r2,c2);
-      if (aliveArr[i]===1){ const u=colorArr[i]||colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-        rr+=(u&255); gg+=((u>>8)&255); bb+=((u>>16)&255); count++; }
-    }
-    if (count===0) return null;
-    return {r:Math.round(rr/count), g:Math.round(gg/count), b:Math.round(bb/count)};
+    let rr=0,gg=0,bb=0,count=0; for(const [dr,dc] of nbr){ const pos=wrap(r+dr,c+dc); if(!pos) continue; const [r2,c2]=pos, i=idx(r2,c2);
+      if(aliveArr[i]===1){ const u=colorArr[i]||colors[i]||packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b); rr+=(u&255); gg+=((u>>8)&255); bb+=((u>>16)&255); count++; } }
+    if(count===0) return null; return {r:Math.round(rr/count), g:Math.round(gg/count), b:Math.round(bb/count)};
   }
-
   function findRadialEmpty(r,c,state){
     const maxR=Math.max(rows,cols);
-    for (let d=1; d<=maxR; d++){
+    for(let d=1; d<=maxR; d++){
       const ring=[];
-      for (let rr=r-d; rr<=r+d; rr++){
-        for (let cc=c-d; cc<=c+d; cc++){
-          if (rr===r-d || rr===r+d || cc===c-d || cc===c+d){
-            const pos=wrap(rr,cc); if(!pos) continue; ring.push(pos);
-          }
-        }
+      for(let rr=r-d; rr<=r+d; rr++) for(let cc=c-d; cc<=c+d; cc++){
+        if(rr===r-d||rr===r+d||cc===c-d||cc===c+d){ const pos=wrap(rr,cc); if(!pos) continue; ring.push(pos); }
       }
-      for (let i=ring.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const tmp=ring[i]; ring[i]=ring[j]; ring[j]=tmp; }
-      for (const [rr,cc] of ring){
-        const k=idx(rr,cc); if (state[k]!==1) return [rr,cc];
-      }
+      for(let i=ring.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=ring[i]; ring[i]=ring[j]; ring[j]=t; }
+      for(const [rr,cc] of ring){ const k=idx(rr,cc); if(state[k]!==1) return [rr,cc]; }
     }
     return null;
   }
 
-  // --- Fill ---
   function regionPred(code){
     const hr=Math.floor(rows/2), hc=Math.floor(cols/2);
-    switch(code){
-      case 'c': return (r,c)=>true;
-      case 'u': return (r,c)=>r<hr;
-      case 'd': return (r,c)=>r>=hr;
-      case 'l': return (r,c)=>c<hc;
-      case 'r': return (r,c)=>c>=hc;
-      case 'ul': return (r,c)=>r<hr && c<hc;
-      case 'ur': return (r,c)=>r<hr && c>=hc;
-      case 'dl': return (r,c)=>r>=hr && c<hc;
-      case 'dr': return (r,c)=>r>=hr && c>=hc;
-    }
+    switch(code){ case 'c': return (r,c)=>true; case 'u': return (r,c)=>r<hr; case 'd': return (r,c)=>r>=hr; case 'l': return (r,c)=>c<hc;
+      case 'r': return (r,c)=>c>=hc; case 'ul': return (r,c)=>r<hr&&c<hc; case 'ur': return (r,c)=>r<hr&&c>=hc; case 'dl': return (r,c)=>r>=hr&&c<hc; case 'dr': return (r,c)=>r>=hr&&c>=hc; }
     return (r,c)=>true;
   }
   function randomFill(code,pct){
-    const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-    pct=clamp(pct,0,100);
-    const include=regionPred(code);
-    const pool=[];
-    for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) if (include(r,c)) pool.push(idx(r,c));
+    pct=clamp(pct,0,100); const include=regionPred(code); const pool=[];
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(include(r,c)) pool.push(idx(r,c));
     let n=Math.floor(pool.length*(pct/100));
-    while (n>0 && pool.length>0){
-      const j=Math.floor(Math.random()*pool.length); const i=pool[j];
-      grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-      pool[j]=pool[pool.length-1]; pool.pop(); n--;
-    }
+    while(n>0 && pool.length>0){ const j=Math.floor(Math.random()*pool.length); const i=pool[j];
+      grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b); pool[j]=pool[pool.length-1]; pool.pop(); n--; }
   }
 
-  // --- Mouse draw ---
   let drawing=false, drawState=1;
-  canvas.addEventListener('mousedown',(e)=>{
-    const p=toCell(e); if(!p) return;
-    drawing=true; drawState = e.shiftKey?0:1; applyDraw(p.r,p.c,drawState);
-  });
+  canvas.addEventListener('mousedown',(e)=>{ const p=toCell(e); if(!p) return; drawing=true; drawState=e.shiftKey?0:1; applyDraw(p.r,p.c,drawState); });
   window.addEventListener('mouseup',()=>{ if(drawing){ drawing=false; pushSnap(); updateButtons(); updateDiag(); } });
   canvas.addEventListener('mousemove',(e)=>{ if(!drawing) return; const p=toCell(e); if(!p) return; applyDraw(p.r,p.c,drawState); });
-  function toCell(e){
-    const rect=canvas.getBoundingClientRect();
-    const c=Math.floor((e.clientX-rect.left)/blockSize);
-    const r=Math.floor((e.clientY-rect.top)/blockSize);
-    if (r<0||r>=rows||c<0||c>=cols) return null; return {r,c};
-  }
-  function applyDraw(r,c,state){
-    const i=idx(r,c);
-    grid[i]=state;
-    if (state===1) colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-    draw(); updateDiag();
-  }
+  function toCell(e){ const rect=canvas.getBoundingClientRect(); const c=Math.floor((e.clientX-rect.left)/blockSize), r=Math.floor((e.clientY-rect.top)/blockSize); if(r<0||r>=rows||c<0||c>=cols) return null; return {r,c}; }
+  function applyDraw(r,c,state){ const i=idx(r,c); grid[i]=state; if(state===1) colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b); draw(); updateDiag(); }
 
-  // --- Keyboard ---
   window.addEventListener('keydown',(e)=>{
-    const tag=(e.target&&e.target.tagName)||'';
-    if (tag==='INPUT' || tag==='TEXTAREA' || e.target.isContentEditable) return;
-    if (e.code==='Space'){ e.preventDefault(); running=!running; if(running) cursor=snaps.length-1; updateButtons(); }
-    else if (e.code==='ArrowRight'){ e.preventDefault(); stepForward(); }
-    else if (e.code==='ArrowLeft'){ e.preventDefault(); stepBack(); }
+    const tag=(e.target&&e.target.tagName)||''; if(tag==='INPUT'||tag==='TEXTAREA'||e.target.isContentEditable) return;
+    if(e.code==='Space'){ e.preventDefault(); running=!running; if(running) cursor=snaps.length-1; updateButtons(); }
+    else if(e.code==='ArrowRight'){ e.preventDefault(); stepForward(); }
+    else if(e.code==='ArrowLeft'){ e.preventDefault(); stepBack(); }
   });
 
-  // --- Buttons ---
   btnPlay.addEventListener('click',()=>{ running=true; cursor=snaps.length-1; updateButtons(); });
   btnPause.addEventListener('click',()=>{ running=false; updateButtons(); });
   btnStepForward.addEventListener('click',()=>stepForward());
   btnStepBack.addEventListener('click',()=>stepBack());
-  btnClear.addEventListener('click',()=>{
-    grid.fill(0); colors.fill(0); generation=0; snaps=[]; cursor=-1; pushSnap(); recalcActivity(); draw(); updateDiag();
-  });
-  btnResize.addEventListener('click',()=>{ const v=parseInt(inputBlock.value,10); if (isFinite(v)&&v>0){ blockSize=v; setCanvas(); }});
+  btnClear.addEventListener('click',()=>{ grid.fill(0); colors.fill(0); generation=0; snaps=[]; cursor=-1; pushSnap(); recalcActivity(); draw(); updateDiag(); });
+  btnResize.addEventListener('click',()=>{ const v=parseInt(inputBlock.value,10); if(isFinite(v)&&v>0){ blockSize=v; setCanvas(); }});
   chkToroidal.addEventListener('change',e=>{ opts.toroidal=e.target.checked; draw(); });
   chkRainbow.addEventListener('change',e=>{ opts.rainbow=e.target.checked; draw(); });
   chkTrends.addEventListener('change',e=>{ opts.trends=e.target.checked; draw(); });
-  chkAging.addEventListener('change',e=>{ opts.aging=e.target.checked; inputBR.disabled=!opts.aging; chkRebal.disabled=!opts.aging; inputThresh.disabled=!(opts.aging && opts.rebal); });
+  chkAging.addEventListener('change',e=>{ opts.aging=e.target.checked; inputBR.disabled=!opts.aging; chkRebal.disabled=!opts.aging; inputThresh.disabled=!(opts.aging&&opts.rebal); });
   inputBR.addEventListener('input',e=>{ const v=parseInt(e.target.value,10); opts.BR=Math.max(0,Math.min(12,isFinite(v)?v:2)); e.target.value=opts.BR; });
-  chkRebal.addEventListener('change',e=>{ opts.rebal=e.target.checked; inputThresh.disabled=!(opts.aging && opts.rebal); });
+  chkRebal.addEventListener('change',e=>{ opts.rebal=e.target.checked; inputThresh.disabled=!(opts.aging&&opts.rebal); });
   inputThresh.addEventListener('input',e=>{ const v=parseInt(e.target.value,10); opts.thresh=Math.max(0,Math.min(50,isFinite(v)?v:5)); e.target.value=opts.thresh; });
   inputFillPct.addEventListener('input',e=>{ const v=parseInt(e.target.value,10); opts.fillPct=Math.max(0,Math.min(100,isFinite(v)?v:10)); e.target.value=opts.fillPct; });
 
@@ -551,164 +315,119 @@ History: 0/20</div>
     picker.click();
   });
 
-  btnQuarters.addEventListener('click',()=>{ showQuarters=!showQuarters; draw(); });
-
   $$('.grid3 button').forEach(b=>{
-    b.addEventListener('click',()=>{
-      const code=b.getAttribute('data-fill');
-      randomFill(code, parseInt(inputFillPct.value,10)||0);
-      pushSnap(); recalcActivity(); draw(); updateDiag();
-    });
+    b.addEventListener('click',()=>{ const code=b.getAttribute('data-fill'); randomFill(code, parseInt(inputFillPct.value,10)||0);
+      pushSnap(); recalcActivity(); draw(); updateDiag(); });
   });
+  btnQuarters.addEventListener('click',()=>{ randomFill('ul', parseInt(inputFillPct.value,10)||0); randomFill('ur', parseInt(inputFillPct.value,10)||0);
+    randomFill('dl', parseInt(inputFillPct.value,10)||0); randomFill('dr', parseInt(inputFillPct.value,10)||0);
+    pushSnap(); recalcActivity(); draw(); updateDiag(); });
 
-  // --- Step navigation ---
-  function stepForward(){
-    if (cursor < snaps.length-1){
-      loadSnap(cursor+1);
-    } else {
-      const t0=performance.now();
-      stepOnce();
-      const t1=performance.now();
-      fps = 1/((t1-t0)/1000) || 0;
-      pushSnap(); recalcActivity(); draw(); updateDiag();
-    }
-  }
-  function stepBack(){ if (cursor>0) loadSnap(cursor-1); }
+  function stepForward(){ if(cursor<snaps.length-1){ loadSnap(cursor+1); } else { const t0=performance.now(); stepOnce(); const t1=performance.now(); fps=1/((t1-t0)/1000)||0; pushSnap(); recalcActivity(); draw(); updateDiag(); } }
+  function stepBack(){ if(cursor>0) loadSnap(cursor-1); }
+  function loop(){ if(running){ if(cursor<snaps.length-1) loadSnap(snaps.length-1); const t0=performance.now(); stepOnce(); const t1=performance.now(); fps=1/((t1-t0)/1000)||0; pushSnap(); recalcActivity(); draw(); updateDiag(); } requestAnimationFrame(loop); }
 
-  // --- RAF loop ---
-  function loop(){
-    if (running){
-      if (cursor<snaps.length-1){ loadSnap(snaps.length-1); }
-      const t0=performance.now();
-      stepOnce();
-      const t1=performance.now();
-      fps = 1/((t1-t0)/1000) || 0;
-      pushSnap(); recalcActivity(); draw(); updateDiag();
-    }
-    requestAnimationFrame(loop);
-  }
-
-  // --- Presets Modal & Library ---
   const modal=$('#modal'), list=$('#presetList'), btnCloseModal=$('#btnCloseModal');
   btnPresets.addEventListener('click',()=>{ buildPresetList(); modal.style.display='flex'; });
   btnCloseModal.addEventListener('click',()=>{ modal.style.display='none'; });
   modal.addEventListener('click',e=>{ if(e.target===modal) modal.style.display='none'; });
 
-  function buildPresetList(){
-    list.innerHTML='';
-    PRESETS.forEach(p=>{
-      const card=document.createElement('div'); card.className='card';
-      const h=document.createElement('h4'); h.textContent=p.name; card.appendChild(h);
-      const sm=document.createElement('small'); sm.textContent=p.desc||''; card.appendChild(sm);
+  // --- Presets ---
+  const PRESETS=[];
+  function addCoords(name,cells,desc){ PRESETS.push({name,desc,type:'coords',cells}); }
+  function addRLE(name,rle,desc){ PRESETS.push({name,desc,type:'rle',rle}); }
+  function buildPresetList(){ list.innerHTML=''; PRESETS.forEach(p=>{ const card=document.createElement('div'); card.className='card';
+      const h=document.createElement('h4'); h.textContent=p.name; const sm=document.createElement('small'); sm.textContent=p.desc||'';
       const btn=document.createElement('button'); btn.className='tiny'; btn.textContent='Insert';
-      if (p.disabled){ btn.disabled=true; btn.title=p.disabled; }
-      btn.addEventListener('click',()=>{ if(!p.disabled){ insertPreset(p); modal.style.display='none'; }});
-      card.appendChild(btn); list.appendChild(card);
-    });
-  }
+      btn.addEventListener('click',()=>{ insertPreset(p); modal.style.display='none'; });
+      card.appendChild(h); card.appendChild(sm); card.appendChild(btn); list.appendChild(card); }); }
 
   function insertPreset(pat){
     grid.fill(0); colors.fill(0); generation=0; snaps=[]; cursor=-1;
     let cells=[];
-    if (pat.type==='coords') cells = pat.cells;
-    else if (pat.type==='rle') cells = parseRLE(pat.rle);
-    else if (pat.type==='func') cells = pat.build();
+    if (pat.type==='coords') cells=pat.cells;
+    else if (pat.type==='rle') cells=parseRLE(pat.rle);
     if (cells.length){
       const minR=Math.min(...cells.map(x=>x[0])), maxR=Math.max(...cells.map(x=>x[0]));
       const minC=Math.min(...cells.map(x=>x[1])), maxC=Math.max(...cells.map(x=>x[1]));
-      const h=maxR-minR+1, w=maxC-minC+1;
-      const offR = Math.floor((rows-h)/2)-minR;
-      const offC = Math.floor((cols-w)/2)-minC;
-      for (const [r,c] of cells){
-        const rr=clamp(r+offR,0,rows-1), cc=clamp(c+offC,0,cols-1);
-        const i=idx(rr,cc); grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-      }
+      const h=maxR-minR+1, w=maxC-minC+1; const offR=Math.floor((rows-h)/2)-minR; const offC=Math.floor((cols-w)/2)-minC;
+      for (const [r,c] of cells){ const rr=clamp(r+offR,0,rows-1), cc=clamp(c+offC,0,cols-1), i=idx(rr,cc); grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b); }
     }
     pushSnap(); recalcActivity(); draw(); updateDiag();
   }
 
-  // Simple RLE parser
   function parseRLE(rle){
-    const lines = rle.split(/\r?\n/).map(s=>s.trim()).filter(s=>s && !s.startsWith('#'));
-    if (lines.length && /^x\s*=\s*\d+/.test(lines[0])) lines.shift();
-    const data = lines.join('').replace(/\s+/g,'');
-    const out=[]; let r=0,c=0, num='';
-    for (let i=0;i<data.length;i++){
-      const ch=data[i];
-      if (/\d/.test(ch)){ num+=ch; continue; }
-      const n = num?parseInt(num,10):1; num='';
-      if (ch==='b'){ c+=n; }
-      else if (ch==='o'){ for(let k=0;k<n;k++) out.push([r,c+k]); c+=n; }
-      else if (ch==='$'){ r+=n; c=0; }
-      else if (ch==='!'){ break; }
-    }
+    const lines=rle.split(/\r?\n/).map(s=>s.trim()).filter(s=>s && !s.startsWith('#'));
+    if(lines.length && /^x\s*=\s*\d+/.test(lines[0])) lines.shift();
+    const data=lines.join('').replace(/\s+/g,'');
+    const out=[]; let r=0,c=0,num='';
+    for(let i=0;i<data.length;i++){ const ch=data[i];
+      if(/\d/.test(ch)){ num+=ch; continue; }
+      const n=num?parseInt(num,10):1; num='';
+      if(ch==='b'){ c+=n; }
+      else if(ch==='o'){ for(let k=0;k<n;k++) out.push([r,c+k]); c+=n; }
+      else if(ch==='$'){ r+=n; c=0; }
+      else if(ch==='!'){ break; } }
     return out;
   }
 
-  const PRESETS=[
-    // Still lifes
-    {name:'Block', desc:'Still life', type:'coords', cells:[[0,0],[0,1],[1,0],[1,1]]},
-    {name:'Beehive', desc:'Still life', type:'coords', cells:[[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]]},
-    {name:'Loaf', desc:'Still life', type:'coords', cells=[[0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2]]},
-    {name:'Boat', desc:'Still life', type:'coords', cells=[[0,0],[0,1],[1,0],[1,2],[2,1]]},
-    // Oscillators
-    {name:'Blinker', desc:'p2 oscillator', type:'coords', cells=[[0,0],[0,1],[0,2]]},
-    {name:'Toad', desc:'p2 oscillator', type:'coords', cells=[[1,0],[1,1],[1,2],[0,1],[0,2],[0,3]]},
-    {name:'Beacon', desc:'p2 oscillator', type:'coords', cells=[[0,0],[0,1],[1,0],[2,3],[3,2],[3,3]]},
-    {name:'Pulsar', desc:'p3 oscillator (RLE)', type:'rle', rle:`x = 13, y = 13, rule = B3/S23
+  // Small & classic presets
+  addCoords('Block', [[0,0],[0,1],[1,0],[1,1]], 'Still life');
+  addCoords('Beehive', [[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]], 'Still life');
+  addCoords('Loaf', [[0,1],[0,2],[1,0],[1,3],[2,1],[2,3],[3,2]], 'Still life');
+  addCoords('Boat', [[0,0],[0,1],[1,0],[1,2],[2,1]], 'Still life');
+  addCoords('Blinker', [[0,0],[0,1],[0,2]], 'p2 oscillator');
+  addCoords('Toad', [[1,0],[1,1],[1,2],[0,1],[0,2],[0,3]], 'p2 oscillator');
+  addCoords('Beacon', [[0,0],[0,1],[1,0],[2,3],[3,2],[3,3]], 'p2 oscillator');
+  addRLE('Pulsar', `x = 13, y = 13, rule = B3/S23
 2b3o3b3o2$o4bobo4bo$o4bobo4bo$o4bobo4bo$2b3o3b3o2$2b3o3b3o$o4bobo4bo$o
-4bobo4bo$o4bobo4bo2$2b3o3b3o!`},
-    {name:'Pentadecathlon', desc:'p15 oscillator (RLE)', type:'rle', rle:`x = 10, y = 3, rule = B3/S23
-2bo4bo$2ob4ob2o$2bo4bo!`},
-    // Spaceships
-    {name:'Glider', desc:'Spaceship', type:'coords', cells:[[0,2],[1,0],[1,2],[2,1],[2,2]]},
-    {name:'LWSS', desc:'Lightweight spaceship', type:'coords', cells=[[0,1],[0,4],[1,0],[2,0],[2,4],[3,0],[3,1],[3,2],[3,3],[3,4]]},
-    // Guns
-    {name:'Gosper Glider Gun', desc:'p30 gun (RLE)', type:'rle', rle:`x = 36, y = 9, rule = B3/S23
-24bo$22bobo$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o$2o8bo3bob2o4bobo$10bo5bo7bo$11bo3bo$12b2o!`},
-    // Placeholders for larger patterns until exact RLE strings are provided
-    {name:'Simkin Glider Gun', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
-    {name:'Classic Puffer Train', desc:'Puffer (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
-    {name:'MWSS', desc:'Spaceship (RLE needed)', disabled:'RLE pending'},
-    {name:'HWSS', desc:'Spaceship (RLE needed)', disabled:'RLE pending'},
-    {name:'ak94 (p94 gun)', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
-    {name:'gun132', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
-    {name:'gunstar2 (p168)', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
-    {name:'maximumvolatilitygun (p177)', desc:'Gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
-    {name:'twogun (p60)', desc:'Two-glider gun (RLE needed)', disabled:'RLE pending (to be added from ConwayLife Wiki)'},
-    // Methuselahs
-    {name:'R-pentomino', desc:'Methuselah', type:'coords', cells:[[0,1],[0,2],[1,0],[1,1],[2,1]]},
-    {name:'Diehard', desc:'Methuselah', type:'coords', cells=[[0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7]]},
-    {name:'Acorn', desc:'Methuselah', type:'coords', cells=[[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]]},
-  ];
+4bobo4bo$o4bobo4bo2$2b3o3b3o!`, 'p3 oscillator');
+  addRLE('Pentadecathlon', `x = 10, y = 3, rule = B3/S23
+2bo4bo$2ob4ob2o$2bo4bo!`, 'p15 oscillator');
+  addCoords('Glider', [[0,2],[1,0],[1,2],[2,1],[2,2]], 'Spaceship');
+  addCoords('LWSS', [[0,1],[0,4],[1,0],[2,0],[2,4],[3,0],[3,1],[3,2],[3,3],[3,4]], 'Spaceship');
+  addRLE('Gosper Glider Gun', `x = 36, y = 9, rule = B3/S23
+24bo$22bobo$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o$2o8bo3bob2o4bobo$10bo5bo7bo$11bo3bo$12b2o!`, 'p30 gun');
+  addRLE('Two-Gun (p60)', `x = 37, y = 27, rule = B3/S23
+27bo$27b4o$11bo16b4o$10bobo5b2o8bo2bo5b2o$3b2o3b2o3bo14b4o5b2o$3b2o3b2o3bo4bobob2o3b4o$8b2o3bo5b2o3bo2bo$10bobo10bo$11bo8bo2bo2$26bobo$28bo$24bo$26bo$25bo2$11b2o$11b2o4bo$2o6b2o6b5ob2o$2o5b3o5bo2b2o4bo$8b2o5b2o8bo12bo$11b2o4bo7bo10bobo$11b2o12bo11b2o$24bo8b2o$22b2o9bobo$35bo$35b2o!`, 'p60 gun');
+  addCoords('R-pentomino', [[0,1],[0,2],[1,0],[1,1],[2,1]], 'Methuselah');
+  addCoords('Diehard', [[0,6],[1,0],[1,1],[2,1],[2,5],[2,6],[2,7]], 'Methuselah');
+  addCoords('Acorn', [[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]], 'Methuselah');
 
-  // --- Initial load: center R-pentomino, no random fill ---
-  function placeInitialRPentomino(){
-    const cells = [[0,1],[0,2],[1,0],[1,1],[2,1]];
-    const h = 3, w = 3;
-    const offR = Math.floor((rows - h)/2);
-    const offC = Math.floor((cols - w)/2);
-    for (const [r,c] of cells){
-      const rr = offR + r;
-      const cc = offC + c;
-      if (rr>=0 && rr<rows && cc>=0 && cc<cols){
-        const i = idx(rr,cc);
-        grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b);
-      }
-    }
-  }
+  // Large guns — embedded canonical AK-94, others stubbed (ready to paste RLEs)
+  addRLE('AK-94 (p94)', `#N AK-94
+#O Mike Playle
+#C The smallest known true p94 gun, found in May 2013.
+#C www.conwaylife.com/wiki/AK-94
+x = 38, y = 25, rule = B3/S23
+7bo7bo7b2o$7b3o5b3o5b2o$10bo7bo$9b2o6b2o16b2o$30b2o2bo2bo$30bobo2b2o$
+33b2o$5bo28bo$5b3o26bob2o$8bo22b2obo2bo$7b2o22b2ob2o3$17bo$2b2ob2o9bobo10b2o$o2bob2o8bo3bo9bo$2obo11bo3bo10b3o$3bo11bo3bo12bo$3b2o11bobo$b2o2bobo9bo$o2bo2b2o$b2o16b2o$19bo$13b2o5b3o$13b2o7bo!`, 'Gun (canonical RLE embedded)');
+  addRLE('Gunstar 2 (p168)', `#N Gunstar 2
+#C TODO: paste canonical RLE
+x = 0, y = 0, rule = B3/S23
+!`, 'Gun (paste canonical RLE)');
+  addRLE('Maximum Volatility Gun (p177)', `#N maximumvolatilitygun
+#C TODO: paste canonical RLE
+x = 0, y = 0, rule = B3/S23
+!`, 'Gun (paste canonical RLE)');
+  addRLE('Simkin Glider Gun (p120)', `#N simkinglidergun
+#C TODO: paste canonical RLE
+x = 0, y = 0, rule = B3/S23
+!`, 'Gun (paste canonical RLE)');
+  addRLE('gun132 (p132)', `#N gun132
+#C TODO: paste canonical RLE
+x = 0, y = 0, rule = B3/S23
+!`, 'Gun (paste canonical RLE)');
+
+  function buildUI(){ inputBlock.value=String(blockSize); inputBR.disabled=!opts.aging; chkRebal.disabled=!opts.aging; inputThresh.disabled=!(opts.aging&&opts.rebal);
+    btnColor.style.background=`rgb(${opts.fillColor.r},${opts.fillColor.g},${opts.fillColor.b})`; }
+
+  function placeInitialRP(){ const cells=[[0,1],[0,2],[1,0],[1,1],[2,1]], h=3,w=3, offR=Math.floor((rows-h)/2), offC=Math.floor((cols-w)/2);
+    for(const [r,c] of cells){ const rr=offR+r, cc=offC+c; if(rr>=0&&rr<rows&&cc>=0&&cc<cols){ const i=idx(rr,cc); grid[i]=1; colors[i]=packRGB(opts.fillColor.r,opts.fillColor.g,opts.fillColor.b); }} }
 
   function init(){
-    inputBlock.value=String(blockSize);
-    inputBR.disabled=!opts.aging; chkRebal.disabled=!opts.aging; inputThresh.disabled=!(opts.aging&&opts.rebal);
-    btnColor.style.background = `rgb(${opts.fillColor.r},${opts.fillColor.g},${opts.fillColor.b})`;
-    window.addEventListener('resize', setCanvas);
-    setCanvas();
-    if (snaps.length===0 || cursor<0){
-      placeInitialRPentomino();
-      generation=0; snaps=[]; cursor=-1; pushSnap(); recalcActivity(); draw(); updateDiag();
-      initialized = true;
-    }
+    buildUI(); window.addEventListener('resize', setCanvas); setCanvas();
+    if(snaps.length===0 || cursor<0){ placeInitialRP(); generation=0; snaps=[]; cursor=-1; pushSnap(); recalcActivity(); draw(); updateDiag(); initialized=true; }
     requestAnimationFrame(loop);
   }
 

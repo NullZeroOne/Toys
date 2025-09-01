@@ -1,209 +1,147 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Game of Life PRD</title>
+<meta charset="utf-8" />
+<title>Game of Life PRD — Complete</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-  body { font-family: Arial, sans-serif; margin: 2em; line-height: 1.6; background: #fff; color: #000; }
-  h1,h2,h3,h4 { color: #003366; }
-  pre { background: #f4f4f4; padding: 1em; overflow-x: auto; }
-  code { color: #660000; }
-  nav ul { list-style: none; padding: 0; }
-  nav ul li { margin: .3em 0; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.55; margin: 2rem; color:#111; }
+  h1, h2, h3 { margin-top:1.2em; }
+  code, pre { background:#f6f8fa; padding:0.2rem 0.4rem; border-radius:4px; }
+  pre { overflow-x:auto; white-space:pre-wrap; }
+  ul, ol { margin:0.4rem 0 0.6rem 1.4rem; }
+  table { border-collapse: collapse; width:100%; margin:1rem 0; }
+  th, td { border:1px solid #ddd; padding:0.5rem; text-align:left; vertical-align:top; }
+  th { background:#f3f4f6; }
+  .note { background:#fff8e6; border:1px solid #ffe8b3; padding:0.8rem 1rem; border-radius:8px; }
 </style>
 </head>
 <body>
-<h1>Product Requirements Document<br>Conway's Game of Life — Extended Web App</h1>
+<h1>Product Requirements Document (PRD)<br>Conway’s Game of Life — Extended Web App</h1>
 
-<nav>
 <h2>Table of Contents</h2>
-<ul>
-  <li>1. Introduction</li>
-  <li>2. Defaults</li>
-  <li>3. User Interface</li>
-  <li>4. Controls & Editing</li>
-  <li>5. Simulation Rules</li>
-  <li>6. Aging & Population Rebalancing</li>
-  <li>7. Visualization Modes</li>
-  <li>8. History & Stepping</li>
-  <li>9. Diagnostics</li>
-  <li>10. Presets Feature</li>
-  <li>11. Favicon & Branding</li>
-  <li>12. Keyboard Shortcuts</li>
-  <li>13. Pseudocode</li>
-  <li>Appendix A. Preset Pattern Definitions</li>
-</ul>
-</nav>
+<ol>
+  <li>Overview</li>
+  <li>UI / Controls</li>
+  <li>Gameplay Features</li>
+  <li>Algorithms & Pseudocode</li>
+  <li>Diagnostics</li>
+  <li>Presets Feature</li>
+  <li>Appendix A: Small & Classic Patterns</li>
+  <li>Appendix B: Large Guns (Embedded Canonical RLEs)</li>
+</ol>
 
-<h2>1. Introduction</h2>
-<p>This document defines requirements for the extended Conway’s Game of Life web app, including UI layout, simulation behavior, visualization, presets, and special rules.</p>
+<h2>1. Overview</h2>
+<p>This project implements an extended, web-based version of Conway’s Game of Life. It runs entirely in the browser as a self-contained HTML/JS app. Key extensions include rainbow mode, trends visualization, aging with birth rate and rebalancing, fill tools, presets, history navigation, and diagnostics.</p>
 
-<h2>2. Defaults</h2>
+<h2>2. UI / Controls</h2>
 <ul>
-<li>Block size: 15 pixels</li>
-<li>Default fill percentage: 10%</li>
-<li>Default fill/draw color: White (#FFFFFF) on black background</li>
-<li>History buffer size: 20 states</li>
-<li>Initial state: <strong>R-pentomino</strong> centered on board</li>
-<li>Toroidal topology: Enabled by default</li>
+  <li>Controls: ▶️ Play, ⏸️ Pause, ⬅️ Step Back, ➡️ Step Forward, Clear.</li>
+  <li>Block Size input (default 15 px) with Resize button (center-anchored preservation).</li>
+  <li>Fill % input (default 10) with color picker button. Fill grid: 3×3 arrows + Quarters button.</li>
+  <li>Options (arranged in rows):<br>
+    • Toroidal (default true)<br>
+    • Rainbow / Trends<br>
+    • Aging / Birth Rate (default 2)<br>
+    • PopRebal / Threshold % (default 5)</li>
+  <li>History buffer size (default 20).</li>
+  <li>Presets button (modal popup).</li>
 </ul>
 
-<h2>3. User Interface</h2>
+<h2>3. Gameplay Features</h2>
 <ul>
-<li>Controls panel on the left (narrow, white-on-black theme)</li>
-<li>Play ▶️, Pause ⏸️, Step Back ⬅️, Step Forward ➡️, Clear in first row</li>
-<li>Block Size input + Resize button below</li>
-<li>Fill % input and color picker swatch in next row</li>
-<li>Fill region 3×3 grid of arrows + Quarters + Presets buttons</li>
-<li>Options arranged:</li>
-<ul>
-<li>Line 1: Toroidal</li>
-<li>Line 2: Rainbow, Trends</li>
-<li>Line 3: Aging, Birth Rate</li>
-<li>Line 4: PopRebal, Threshold %</li>
-</ul>
-<li>On-canvas gradient legend for Trends; no sidebar legend</li>
+  <li>History of up to N generations, with step-back/forward navigation. Clear clears history.</li>
+  <li>Fill operation adds live cells non-destructively in chosen region.</li>
+  <li>Initial load: R-pentomino centered.</li>
+  <li>Rainbow mode: new births average neighbor colors; aging spawns use neighbor color or parent if isolated.</li>
+  <li>Trends: gradient from white→blue→teal→green→yellow→red, based on fraction of history alive.</li>
+  <li>Aging: cells alive for entire history die and spawn BR new cells (radially placed). With PopRebal, spawn count depends on population relative to Fill% ± Threshold.</li>
+  <li>Population Rebalancing: when enabled with Aging, adjusts spawn count rules (low → BR+1, high → BR-1, else BR).</li>
+  <li>Toroidal wrap-around supported (default true).</li>
+  <li>Keyboard shortcuts: Space (Play/Pause), ← (Step Back), → (Step Forward).</li>
 </ul>
 
-<h2>4. Controls & Editing</h2>
+<h2>4. Algorithms & Pseudocode</h2>
+<h3>Step function (simplified pseudocode)</h3>
+<pre>
+for each cell:
+  count neighbors (toroidal if enabled)
+  apply survival/birth rules:
+    - normal: survive if n=2 or 3, birth if n=3
+    - with PopRebal: low → birth if 2 or 3, high → survival only if n>=3
+  assign new color:
+    - rainbow: average of neighbors
+    - normal: fill color
+apply aging:
+  for each cell alive for full history:
+    kill it
+    spawn BR new cells (adjusted if PopRebal)
+    place spawns radially outward until empty cells found
+    assign colors from neighbors or inherit parent
+</pre>
+
+<h2>5. Diagnostics</h2>
+<p>Displayed in a compact panel:</p>
+<pre>
+FPS: 0.0 | Gen: 0
+Alive: 0 (0.0%)
+Size: 0×0
+History: 0/20
+</pre>
+
+<h2>6. Presets Feature</h2>
 <ul>
-<li>Click = draw; Shift+Click = erase; dragging supported</li>
-<li>Fill buttons activate percentage fill in selected region</li>
-<li>Fill does not clear existing board; re-fills are cumulative</li>
-<li>Clear button resets board and history</li>
-<li>Resizing preserves board contents (anchored top-left)</li>
+  <li>Presets modal shows pattern cards with name, type, description, source.</li>
+  <li>Loading clears board & history, places pattern centered, and checkpoints.</li>
+  <li>Supports both small hard-coded coords and large RLE-defined patterns.</li>
 </ul>
 
-<h2>5. Simulation Rules</h2>
-<p>Standard Conway’s Life rules (B3/S23) unless modified by rebalancing:</p>
-<ul>
-<li>Cell survives with 2 or 3 neighbors</li>
-<li>Empty cell becomes alive with 3 neighbors</li>
-<li>Population rebalancing can modify thresholds (see Section 6)</li>
-</ul>
+<h2>7. Appendix A: Small & Classic Patterns</h2>
+<p>Includes still lifes (Block, Beehive, Loaf, Boat), oscillators (Blinker, Toad, Beacon, Pulsar, Pentadecathlon), spaceships (Glider, LWSS, MWSS, HWSS), guns (Gosper Glider Gun, Two-Gun), and methuselahs (R-pentomino, Diehard, Acorn).</p>
+<p>Each small pattern is defined either via explicit coordinates or short inline RLE. These are embedded directly in the app.</p>
 
-<h2>6. Aging & Population Rebalancing</h2>
-<ul>
-<li>Aging enabled: A cell dies if it was alive for the entire history window</li>
-<li>Birth Rate (BR): Number of new cells spawned per aged death (default 2)</li>
-<li>Population Rebalancing active only when Aging is enabled</li>
-<li>Rebalancing modifies births per aged death:</li>
-<ul>
-<li>Population &lt; Fill% − Threshold → BR+1</li>
-<li>Within range → BR</li>
-<li>Population &gt; Fill% + Threshold → BR−1 (min 0)</li>
-</ul>
-<li>Spawn placement: radial search outward from dying cell, randomizing candidates per ring</li>
-</ul>
+<h2>8. Appendix B: Large Guns (Embedded Canonical RLEs)</h2>
+<p>The following guns are included with canonical sources. Their full RLE definitions must be <strong>embedded directly into the single-file HTML app</strong>, not loaded externally. This ensures the app remains a standalone offline file. Attribution and licensing details are kept in a separate <code>CREDITS.md</code> file, referencing LifeWiki, authors, and GFDL 1.2.</p>
 
-<h2>7. Visualization Modes</h2>
-<ul>
-<li><strong>Rainbow mode</strong>: New cell color = average of neighbors’ RGB; if from aging, average of neighbors else inherits dying cell color</li>
-<li><strong>Trends mode</strong>: Cells colored by activity fraction across history window; gradient white → blue → teal → green → yellow → orange → red</li>
-<li>Non-rainbow rendering displays stored cell colors (not just B/W)</li>
-</ul>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Period</th><th>Wiki page</th><th>RLE file</th><th>Header excerpt</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>AK-94</strong></td><td>94</td>
+      <td><a href="https://conwaylife.com/wiki/AK-94">LifeWiki: AK-94</a></td>
+      <td><a href="https://conwaylife.com/patterns/ak94.rle">ak94.rle</a></td>
+      <td><code>#N AK-94 · #O Mike Playle · rule=B3/S23</code></td></tr>
 
-<h2>8. History & Stepping</h2>
-<ul>
-<li>20-step buffer, cursor-based navigation</li>
-<li>Step Back and Step Forward navigate snapshots</li>
-<li>Snapshots include board state, colors, and generation</li>
-<li>Clear clears board and history</li>
-<li>Bug fix: can step back to initial R-pentomino</li>
-</ul>
+    <tr><td><strong>gun132</strong></td><td>132</td>
+      <td><a href="https://conwaylife.com/wiki/4g-to-5g_reaction">LifeWiki: 4g-to-5g reaction</a></td>
+      <td><a href="https://conwaylife.com/patterns/gun132.rle">gun132.rle</a></td>
+      <td><code>#N gun132 · rule=B3/S23</code></td></tr>
 
-<h2>9. Diagnostics</h2>
-<ul>
-<li>Diagnostic panel at bottom of sidebar, now <strong>stacked/narrow format</strong>:</li>
-<pre><code>FPS: 30.2 | Gen: 128
-Alive: 1200 (12.5%)
-Size: 80×60
-History: 10/20
-</code></pre>
-<li>FPS updated during play; persists when paused</li>
-</ul>
+    <tr><td><strong>Gunstar 2</strong></td><td>168</td>
+      <td><a href="https://conwaylife.com/wiki/Gunstar_2">LifeWiki: Gunstar 2</a></td>
+      <td><a href="https://conwaylife.com/patterns/gunstar2.rle">gunstar2.rle</a></td>
+      <td><code>#N Gunstar 2 · #O David Buckingham · rule=B3/S23</code></td></tr>
 
-<h2>10. Presets Feature</h2>
-<ul>
-<li>Presets button opens modal with pattern cards</li>
-<li>Patterns clear board + history and insert centered pattern</li>
-<li>Supports both coordinate lists and RLE parsing</li>
-</ul>
+    <tr><td><strong>Maximum Volatility Gun</strong></td><td>177</td>
+      <td><a href="https://conwaylife.com/wiki/Maximum_volatility_gun">LifeWiki: Maximum volatility gun</a></td>
+      <td><a href="https://conwaylife.com/patterns/maximumvolatilitygun.rle">maximumvolatilitygun.rle</a></td>
+      <td><code>#N maximumvolatilitygun · rule=B3/S23</code></td></tr>
 
-<h2>11. Favicon & Branding</h2>
-<ul>
-<li>Uses GameOfLife.* icons (16, 32, 192, 512, apple-touch 180, ICO)</li>
-<li>Icon is R-pentomino, consistent with initial state</li>
-</ul>
+    <tr><td><strong>Two-Gun</strong> (p60)</td><td>60</td>
+      <td><a href="https://conwaylife.com/wiki/Gosper_glider_gun#Gallery">LifeWiki: Gosper gun gallery</a></td>
+      <td><a href="https://conwaylife.com/patterns/twogun.rle">twogun.rle</a></td>
+      <td><code>#N twogun · rule=B3/S23</code></td></tr>
 
-<h2>12. Keyboard Shortcuts</h2>
-<ul>
-<li>Space: Play/Pause</li>
-<li>Left Arrow: Step Back</li>
-<li>Right Arrow: Step Forward</li>
-</ul>
+    <tr><td><strong>Simkin Glider Gun</strong></td><td>120</td>
+      <td><a href="https://conwaylife.com/wiki/Simkin_glider_gun">LifeWiki: Simkin glider gun</a></td>
+      <td><a href="https://conwaylife.com/patterns/simkinglidergun.rle">simkinglidergun.rle</a></td>
+      <td><code>#N simkinglidergun · rule=B3/S23</code></td></tr>
+  </tbody>
+</table>
 
-<h2>13. Pseudocode</h2>
-<h3>Simulation Step</h3>
-<pre><code>function stepOnce():
-  measure current alive%
-  adjust rules if rebalancing+aging active
-  for each cell:
-    count neighbors (wrap if toroidal)
-    apply rules:
-      - alive cell survives (2 or 3 neighbors, or ≥3 if modified)
-      - dead cell born (3 neighbors, or 2–3 if modified low-pop rule)
-    assign color:
-      - rainbow: average neighbor colors
-      - non-rainbow: fill color
-  if aging enabled and history full:
-    for each cell alive full history:
-      kill cell
-      compute spawns = BR (± per rebalancing)
-      place new cells by radial search
-      color new cells = avg neighbors or dying color
-  increment generation
-</code></pre>
-
-<h3>History Management</h3>
-<pre><code>pushSnap():
-  if cursor not at tip, truncate redo branch
-  append deep copy of grid/colors/gen
-  trim to historyCap
-  move cursor to last
-</code></pre>
-
-<h3>Trend Coloring</h3>
-<pre><code>for each cell:
-  frac = alive_count_in_history / window_size
-  color = gradient(frac)
-</code></pre>
-
-<h3>Radial Spawn Placement</h3>
-<pre><code>function findRadialEmpty(r,c):
-  for d=1 to max(rows,cols):
-    collect perimeter cells distance d
-    shuffle perimeter list
-    return first empty cell
-  return null
-</code></pre>
-
-<h2>Appendix A. Preset Pattern Definitions</h2>
-<h3>A.1 Coordinates</h3>
-<ul>
-<li>Block, Beehive, Loaf, Boat</li>
-<li>Blinker, Toad, Beacon</li>
-<li>Glider, LWSS</li>
-<li>R-pentomino, Diehard, Acorn</li>
-</ul>
-<h3>A.2 RLE</h3>
-<ul>
-<li>Pulsar (p3 oscillator)</li>
-<li>Pentadecathlon (p15)</li>
-<li>Gosper Glider Gun (p30 gun)</li>
-</ul>
-<p>Other patterns (MWSS, HWSS, Simkin gun, Puffer Train, etc.) can be added via RLE in the same system.</p>
+<div class="note"><strong>Implementation:</strong> Each RLE above will be pasted into the single HTML file as a string constant and parsed by the presets loader. A separate <code>CREDITS.md</code> will contain attribution (authors, LifeWiki) under GFDL 1.2. This ensures the app runs entirely offline as a standalone file.</div>
 
 </body>
 </html>
