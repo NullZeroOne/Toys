@@ -1,0 +1,88 @@
+=== Program arguments ===
+Namespace(seconds=55.0, min_size='3x3', max_size='10x10', sizes=None, start_rle='x = 6, y = 6, rule = B3/S23\n2ob2o$2b3o$o5$3bo2$obo2bo$5bo!', live='🟩', dead='⬜', attempt_detail=False)
+
+=== User-specified seed (generation 0) ===
+🟩🟩⬜🟩🟩⬜
+⬜⬜🟩🟩🟩⬜
+🟩⬜⬜⬜⬜⬜
+⬜⬜⬜⬜⬜⬜
+⬜⬜⬜⬜⬜⬜
+⬜⬜⬜⬜⬜⬜
+
+RLE:
+x = 6, y = 6, rule = B3/S23
+2ob2o$2b3o$o5$6$6$6!
+
+[try] window 3x3
+[skip] too small
+[try] window 4x4
+[skip] too small
+[try] window 5x5
+[skip] too small
+[try] window 6x6
+[found] at offset (top=0, left=0)
+=== Found predecessor for generation -1 ===
+🟩🟩⬜🟩🟩🟩
+⬜🟩🟩⬜⬜⬜
+🟩⬜⬜⬜⬜⬜
+🟩⬜⬜⬜⬜⬜
+⬜⬜⬜⬜⬜⬜
+⬜⬜⬜⬜⬜⬜
+
+RLE:
+x = 6, y = 6, rule = B3/S23
+2ob3o$b2o3$o5$o5$6$6!
+
+[try] window 3x3
+[skip] too small
+[try] window 4x4
+[skip] too small
+[try] window 5x5
+[skip] too small
+[try] window 6x6
+[try] window 7x7
+[found] at offset (top=0, left=1)
+=== Found predecessor for generation -2 ===
+🟩🟩⬜⬜⬜🟩🟩
+⬜⬜🟩🟩⬜🟩⬜
+🟩🟩⬜⬜🟩🟩⬜
+⬜⬜🟩⬜🟩🟩🟩
+⬜⬜⬜⬜🟩🟩🟩
+⬜⬜🟩⬜⬜🟩⬜
+⬜⬜⬜⬜⬜🟩⬜
+
+RLE:
+x = 7, y = 7, rule = B3/S23
+2o3b2o$2b2obo$2o2b2o$2bob3o$4b3o$2bo2bo$5bo!
+
+[try] window 3x3
+[skip] too small
+[try] window 4x4
+[skip] too small
+[try] window 5x5
+[skip] too small
+[try] window 6x6
+[skip] too small
+[try] window 7x7
+[timeout]
+[done] no predecessor
+== Attempts (per window) ==
+gen window status wall  cpu   rss      peak
+─── ────── ────── ───── ───── ──────── ────
+-1  6x6    ✅      0.20  0.14  31.27 MB -   
+-2  6x6    ❌      0.04  0.04  31.27 MB -   
+-2  7x7    ✅      1.15  0.95  31.27 MB -   
+-3  7x7    ⏳      53.76 49.26 31.20 MB -   
+
+== Predecessors found ==
+gen window wall cpu  cum_wall cum_cpu
+─── ────── ──── ──── ──────── ───────
+-1  6x6    0.20 0.14 0.20     0.14   
+-2  7x7    1.03 0.84 1.24     0.98   
+
+== Run totals ==
+wall  cpu   rss      peak
+───── ───── ──────── ────
+55.00 50.24 31.24 MB -   
+
+
