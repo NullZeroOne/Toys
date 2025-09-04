@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Monarchs of England & Britain — Timeline Trainer</title>
+  <style>
+    :root{
+      --timeline-w: 160px;
+      --page-h: 2200px;
+      --min-reign-h: 40px;
+      --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      --card-w: 420px;
+      --card-pad-x: 12px;
+      --snap-threshold: 14;
+      --near-threshold: 24;
+      --accent: #3b82f6;
+    }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: var(--font); background: #f7f7f8; color: #111; }
+    header { padding: 12px 16px; background: #fff; border-bottom: 1px solid #e8e8ee; position: sticky; top: 0; z-index: 5; }
+    header h1 { font-size: 18px; margin: 0 0 6px 0; font-weight: 700; letter-spacing: 0.2px; }
+    header .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn { appearance: none; border: 1px solid #d1d5db; background: #fff; padding: 6px 10px; border-radius: 999px; font-size: 12px; cursor: pointer; }
+    .btn:hover { border-color: #9ca3af; }
+    .client { position: relative; padding: 12px 12px 48px 12px; }
+    .stage { position: relative; min-height: calc(var(--page-h) + 24px); }
+    .timeline { position: absolute; left: 0; top: 0; width: var(--timeline-w); height: var(--page-h); background: #fff; border: 1px solid #ddd; box-sizing: border-box; }
+    .reign { position: relative; width: 100%; border-bottom: 1px solid #e5e7eb; box-sizing: border-box; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; line-height: 1.25; overflow: hidden; background: #f4f6f9; }
+    .reign:nth-child(even){ background: #eef1f6; }
+    .reign .years { white-space: pre-line; font-variant-numeric: tabular-nums; font-weight: 600; user-select: none; pointer-events: none; }
+    .reign.highlight { outline: 2px solid var(--accent); outline-offset: -2px; filter: saturate(1.2); }
+    .cards-layer{ position: relative; margin-left: calc(var(--timeline-w) + 16px); min-height: var(--page-h); }
+    .card { position: absolute; width: var(--card-w); box-sizing: border-box; padding: 8px var(--card-pad-x); border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-size: 12px; line-height: 1.25; cursor: grab; user-select: none; touch-action: none; }
+    .card.dragging { cursor: grabbing; box-shadow: 0 6px 16px rgba(0,0,0,0.15); z-index: 10; }
+    .card .label { font-weight: 600; white-space: nowrap; }
+    .card.placed { background: #f0fdf4; border-color: #86efac; cursor: default; }
+    .snapline { position: absolute; left: calc(var(--timeline-w) + 8px); width: 6px; background: #dbeafe; display: none; }
+    .snapline.show { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Monarchs of England & Britain — Timeline Trainer</h1>
+    <div class="row">
+      <button id="btn-new" class="btn">Draw New</button>
+      <span style="font-size:12px;color:#555">Drag each monarch to the correct reign on the timeline.</span>
+    </div>
+  </header>
+  <div class="client">
+    <div class="stage" id="stage">
+      <div id="timeline" class="timeline"></div>
+      <div id="cards" class="cards-layer"></div>
+      <div id="snapline" class="snapline"></div>
+    </div>
+  </div>
+  <script>
+    const monarchs = [
+      { name: "William I (the Conqueror)", start: 1066, end: 1087 },
+      { name: "William II (Rufus)", start: 1087, end: 1100 },
+      { name: "Henry I", start: 1100, end: 1135 },
+      { name: "Stephen", start: 1135, end: 1154 },
+      { name: "Henry II", start: 1154, end: 1189 },
+      { name: "Richard I (the Lionheart)", start: 1189, end: 1199 },
+      { name: "John", start: 1199, end: 1216 },
+      { name: "Henry III", start: 1216, end: 1272 },
+      { name: "Edward I", start: 1272, end: 1307 },
+      { name: "Edward II", start: 1307, end: 1327 },
+      { name: "Edward III", start: 1327, end: 1377 },
+      { name: "Richard II", start: 1377, end: 1399 },
+      { name: "Henry IV", start: 1399, end: 1413 },
+      { name: "Henry V", start: 1413, end: 1422 },
+      { name: "Henry VI (first reign)", start: 1422, end: 1461 },
+      { name: "Edward IV (first reign)", start: 1461, end: 1470 },
+      { name: "Henry VI (restored)", start: 1470, end: 1471 },
+      { name: "Edward IV (restored)", start: 1471, end: 1483 },
+      { name: "Edward V", start: 1483, end: 1483 },
+      { name: "Richard III", start: 1483, end: 1485 },
+      { name: "Henry VII", start: 1485, end: 1509 },
+      { name: "Henry VIII", start: 1509, end: 1547 },
+      { name: "Edward VI", start: 1547, end: 1553 },
+      { name: "Mary I", start: 1553, end: 1558 },
+      { name: "Elizabeth I", start: 1558, end: 1603 },
+      { name: "James I (VI of Scotland)", start: 1603, end: 1625 },
+      { name: "Charles I", start: 1625, end: 1649 },
+      { name: "Charles II", start: 1660, end: 1685 },
+      { name: "James II", start: 1685, end: 1688 },
+      { name: "William III & Mary II (joint)", start: 1689, end: 1694 },
+      { name: "William III (solo)", start: 1694, end: 1702 },
+      { name: "Anne", start: 1702, end: 1714 },
+      { name: "George I", start: 1714, end: 1727 },
+      { name: "George II", start: 1727, end: 1760 },
+      { name: "George III", start: 1760, end: 1820 },
+      { name: "George IV", start: 1820, end: 1830 },
+      { name: "William IV", start: 1830, end: 1837 },
+      { name: "Victoria", start: 1837, end: 1901 },
+      { name: "Edward VII", start: 1901, end: 1910 },
+      { name: "George V", start: 1910, end: 1936 },
+      { name: "Edward VIII", start: 1936, end: 1936 },
+      { name: "George VI", start: 1936, end: 1952 },
+      { name: "Elizabeth II", start: 1952, end: 2022 },
+      { name: "Charles III", start: 2022, end: null }
+    ];
+    const timelineEl=document.getElementById('timeline'); const cardsLayer=document.getElementById('cards'); const snapline=document.getElementById('snapline');
+    const currentYear=new Date().getFullYear(); const earliest=Math.min(...monarchs.map(m=>m.start)); const latest=Math.max(...monarchs.map(m=>m.end??currentYear)); const totalYears=latest-earliest;
+    const timelineHeight=parseFloat(getComputedStyle(timelineEl).height); const pxPerYear=timelineHeight/totalYears; const minReignHeight=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-reign-h'));
+    const reignRects=[]; monarchs.forEach(m=>{const end=m.end??currentYear; const years=Math.max(1,end-m.start||1); const h=Math.max(minReignHeight,years*pxPerYear); const block=document.createElement('div'); block.className='reign'; block.style.height=h+'px'; const label=document.createElement('div'); label.className='years'; label.textContent=`${m.start}–\n${m.end??""}`; block.appendChild(label); timelineEl.appendChild(block); reignRects.push({el:block,height:h});});
+    const placed=new Set(); let activeCards=[]; let activeIndices=new Set();
+    function randomIdx(){const opts=monarchs.map((_,i)=>i).filter(i=>!placed.has(i)&&!activeIndices.has(i));return opts.length?opts[Math.floor(Math.random()*opts.length)]:null;}
+    function spawn(idx,y){const h=reignRects[idx].height; const card=document.createElement('div'); card.className='card'; card.dataset.idx=idx; card.style.height=h+'px'; card.style.left=(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--timeline-w'))+32)+'px'; card.style.top=y+'px'; card.innerHTML=`<div class="label">${monarchs[idx].name}</div>`; cardsLayer.appendChild(card); makeDraggable(card); activeCards.push(card); activeIndices.add(idx);}
+    function initial(){let y=8;for(let i=0;i<3;i++){const idx=randomIdx();if(idx==null)break;spawn(idx,y);y+=reignRects[idx].height+16;}}; initial();
+    function replaceUnplaced(){activeCards.filter(c=>!c.classList.contains('placed')).forEach(c=>{cardsLayer.removeChild(c);activeIndices.delete(Number(c.dataset.idx));});activeCards=activeCards.filter(c=>c.classList.contains('placed'));initial();}
+    document.getElementById('btn-new').onclick=replaceUnplaced;
+    function makeDraggable(card){card.onpointerdown=e=>{if(card.classList.contains('placed'))return;card.setPointerCapture(e.pointerId);const r=card.getBoundingClientRect();card._drag={sx:e.clientX,sy:e.clientY,ol:r.left+window.scrollX,ot:r.top+window.scrollY};card.classList.add('dragging');};card.onpointermove=e=>{if(!card._drag)return;card.style.left=card._drag.ol+(e.clientX-card._drag.sx)+'px';card.style.top=card._drag.ot+(e.clientY-card._drag.sy)+'px';};card.onpointerup=()=>{if(!card._drag)return;snap(card);card.classList.remove('dragging');card._drag=null;};}
+    function snap(card){const idx=Number(card.dataset.idx),t=reignRects[idx].el,tRect=t.getBoundingClientRect(),cRect=card.getBoundingClientRect();if(Math.abs((cRect.top+cRect.height/2)-(tRect.top+tRect.height/2))<parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--snap-threshold'))){card.style.left=timelineEl.getBoundingClientRect().right+8+window.scrollX+'px';card.style.top=tRect.top+window.scrollY+'px';card.style.height=tRect.height+'px';card.classList.add('placed');placed.add(idx);activeIndices.delete(idx);if(activeCards.filter(c=>!c.classList.contains('placed')).length<3){const ni=randomIdx();if(ni!=null)spawn(ni,window.scrollY+20);}}}
+  </script>
+</body>
+</html>
