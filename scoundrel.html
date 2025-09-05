@@ -45,7 +45,7 @@
   .suit{font-size:20px;} .red{color:#ff9aba;} .blk{color:#9ec7ff;}
   .kind{font-size:12px;color:var(--muted);}
   .actions{display:flex;flex-direction:column;gap:8px;margin-top:auto;}
-  .log{margin-top:14px;background:var(--card);border:1px solid #2c3155;border-radius:12px;padding:10px 12px;max-height:200px;overflow:auto;font-size:14px;}
+  .log{margin-top:14px;background:var(--card);border:1px solid #2c3155;border-radius:12px;padding:10px 12px;max-height:220px;overflow:auto;font-size:14px;}
   .log p{margin:6px 0;color:#cbd2ff;} .ok{color:var(--ok);} .bad{color:var(--danger);}
   .footer{display:flex;gap:10px;justify-content:flex-end;margin-top:10px;}
   .pill{display:inline-flex;align-items:center;gap:8px;background:#1b2040;padding:8px 10px;border-radius:999px;border:1px solid #313a74;}
@@ -53,7 +53,7 @@
   .stackCard{background:#1b2040;border:1px solid #313a74;border-radius:8px;padding:6px 8px;font-size:13px;}
   .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,7,15,.7);}
   .modal{background:var(--panel);padding:20px;border-radius:14px;width:min(92vw,520px);border:1px solid #2a2f51;}
-  .modal h2{margin:0 0 8px 0;} .modal p{color:var(--muted);} .modal .actions{flex-direction:row;margin-top:12px;}
+  .modal h2{margin:0 0 8px 0;} .modal p{color:var(--muted);} .modal .actions{flex-direction:row;margin-top:12px;gap:10px;}
 </style>
 </head>
 <body>
@@ -78,50 +78,309 @@
   <div class="footer"><button id="restartBtn" style="display:none">Play Again</button></div>
 </div>
 <div class="overlay" id="overlay">
-  <div class="modal"><h2 id="modalTitle"></h2><p id="modalMsg"></p>
-    <div class="actions"><button id="modalRestart">Play Again</button></div>
+  <div class="modal">
+    <h2 id="modalTitle"></h2><p id="modalMsg"></p>
+    <div class="actions">
+      <button id="modalKeepGoing">Keep Going!</button>
+      <button id="modalRestart">Play Again</button>
+    </div>
   </div>
 </div>
 
 <script>
 (() => {
   const SUITS=["♥","♦","♣","♠"],RANKS=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-  const val=r=>r==="A"?1:r==="J"?11:r==="Q"?12:r==="K"?13:parseInt(r);
-  const isRed=s=>s==="♥"||s==="♦"; const kind=c=>c.suit==="♦"?"weapon":c.suit==="♥"?"potion":"monster";
+  const val=r=>r==="A"?1:r==="J"?11:r==="Q"?12:r==="K"?13:parseInt(r,10);
+  const isRed=s=>s==="♥"||s==="♦";
+  const kind=c=>c.suit==="♦"?"weapon":c.suit==="♥"?"potion":"monster";
   const fmt=c=>c.rank+c.suit;
+  const clampHP = hp => Math.max(0, Math.min(20, hp)); // cap at 20
   function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
   let state;
+
   function newGame(){
-    const deck=[]; for(const s of SUITS){for(const r of RANKS){if(isRed(s)&&["A","J","Q","K"].includes(r))continue;deck.push({rank:r,suit:s,value:val(r),type:null});}}
-    deck.forEach(c=>c.type=kind(c)); shuffle(deck);
-    state={hp:20,deck,discard:[],room:[],moves:0,potionDrunk:false,weapon:[],ranLast:false,over:false};
-    drawToRoom(4); render(); log("New game started. First room drawn.");
+    const deck=[];
+    for(const s of SUITS){
+      for(const r of RANKS){
+        if(isRed(s) && ["A","J","Q","K"].includes(r)) continue; // remove red aces & red face cards
+        deck.push({rank:r,suit:s,value:val(r),type:null});
+      }
+    }
+    deck.forEach(c=>c.type=kind(c));
+    shuffle(deck);
+
+    state={
+      hp:20,
+      deck,
+      discard:[],
+      room:[],
+      moves:0,
+      potionDrunk:false,
+      weapon:[],   // stack [weapon, defeated M1, M2, ...]
+      ranLast:false,
+      over:false
+    };
+
+    drawToRoom(4);
+    render();
+    log("New game started. First room drawn.");
   }
-  function drawToRoom(n){while(state.deck.length&&state.room.length<4&&n>0){state.room.push(state.deck.shift());n--;}}
-  function log(m,cls=""){const p=document.createElement("p");if(cls)p.className=cls;p.textContent=m;document.getElementById("log").appendChild(p);}
-  function updHUD(){hp.textContent=state.hp;deckCount.textContent=state.deck.length;discardCount.textContent=state.discard.length;moves.textContent=state.moves;}
-  function canUseW(mon){if(!state.weapon.length)return false;if(state.weapon.length===1)return true;return mon.value<state.weapon[state.weapon.length-1].value;}
-  function baseVal(){return state.weapon.length?state.weapon[0].value:0;}
-  function actMonster(idx,armed){const c=state.room[idx];if(armed&&!canUseW(c))return;const dmg=armed?Math.max(c.value-baseVal(),0):c.value;state.hp-=dmg;if(armed)state.weapon.push(c);else state.discard.push(c);state.room.splice(idx,1);state.moves++;log(`${armed?"Weapon":"Unarmed"} vs ${fmt(c)}: took ${dmg}. HP ${state.hp}`,dmg?"bad":"ok");after();}
-  function equip(idx){const c=state.room[idx];if(state.weapon.length)state.discard.push(...state.weapon);state.weapon=[c];state.room.splice(idx,1);state.moves++;log(`Equipped ${fmt(c)}.`, "ok");after();}
-  function potion(idx){const c=state.room[idx];if(!state.potionDrunk){state.hp+=c.value;state.potionDrunk=true;log(`Drank ${fmt(c)}: +${c.value} HP ${state.hp}`,"ok");}else{log(`Discarded ${fmt(c)} (already drank)`);}state.discard.push(c);state.room.splice(idx,1);state.moves++;after();}
-  function run(){if(state.moves>=3){next();return;}if(state.room.length!==4||state.ranLast)return;state.deck.push(...state.room);state.room=[];drawToRoom(4);state.potionDrunk=false;state.moves=0;state.ranLast=true;log("Ran away; drew new room.");render();}
-  function next(){if(state.moves<3)return;if(!state.deck.length){log("No cards left.");render();return;}state.moves=0;state.potionDrunk=false;state.ranLast=false;drawToRoom(3);log("Next turn, refilled.");render();}
-  function after(){updHUD();if(state.hp<=0){over("Defeated","0 HP. Try again.");return;}if(!state.deck.length&&!state.room.length){over("Victory!","You cleared the deck.");return;}render();}
-  function over(t,m){state.over=true;modalTitle.textContent=t;modalMsg.textContent=m;overlay.style.display="flex";restartBtn.style.display="inline-block";}
-  function render(){updHUD();room.innerHTML="";runBtn.textContent=state.moves>=3?"Next turn":"Run";runBtn.disabled=state.moves<3?!(state.room.length===4&&!state.ranLast):(!state.deck.length);
-    const hide=state.moves>=3&&state.deck.length>0&&state.room.length===1;
-    state.room.forEach((c,i)=>{const d=document.createElement("div");d.className="card";d.innerHTML=`<div class="face"><span>${c.rank}</span><span class="suit ${isRed(c.suit)?"red":"blk"}">${c.suit}</span></div><div class="kind">${c.type}</div>`;const a=document.createElement("div");a.className="actions";
-      if(!hide){if(c.type==="monster"){let u=document.createElement("button");u.textContent=`Attack unarmed (take ${c.value})`;u.onclick=()=>actMonster(i,false);a.appendChild(u);
-          if(canUseW(c)){let w=document.createElement("button");w.textContent=`Attack weapon (take ${Math.max(c.value-baseVal(),0)})`;w.onclick=()=>actMonster(i,true);a.appendChild(w);}}
-        else if(c.type==="weapon"){let b=document.createElement("button");b.textContent=`Equip weapon (${c.value})`;b.onclick=()=>equip(i);a.appendChild(b);}
-        else{let b=document.createElement("button");b.textContent=state.potionDrunk?"Discard potion":`Drink potion (+${c.value})`;b.onclick=()=>potion(i);a.appendChild(b);}}
-      else{a.innerHTML="<div class='kind'>Will carry over</div>";}
-      d.appendChild(a);room.appendChild(d);});
-    const wl=document.getElementById("weaponLabel"),ws=document.getElementById("weaponStack");ws.innerHTML="";if(!state.weapon.length){wl.textContent="None";}else{wl.textContent=`${fmt(state.weapon[0])} (value ${state.weapon[0].value})`;for(let j=1;j<state.weapon.length;j++){const sc=document.createElement("span");sc.className="stackCard";sc.textContent=fmt(state.weapon[j]);ws.appendChild(sc);}}
+
+  function drawToRoom(n){
+    while(state.deck.length && state.room.length<4 && n>0){
+      state.room.push(state.deck.shift());
+      n--;
+    }
+    updHUD();
   }
-  runBtn.onclick=()=>{if(state.moves>=3)next();else run();};restartBtn.onclick=()=>{overlay.style.display="none";newGame();};modalRestart.onclick=()=>{overlay.style.display="none";newGame();};
+
+  function log(m,cls=""){
+    const p=document.createElement("p");
+    if(cls) p.className=cls;
+    p.textContent=m;
+    const el=document.getElementById("log");
+    el.appendChild(p);
+    el.scrollTop=el.scrollHeight;
+  }
+
+  function updHUD(){
+    hp.textContent=state.hp;
+    deckCount.textContent=state.deck.length;
+    discardCount.textContent=state.discard.length;
+    moves.textContent=state.moves;
+  }
+
+  function canUseW(mon){
+    if(!state.weapon.length) return false;
+    if(state.weapon.length===1) return true; // first use unrestricted
+    const last=state.weapon[state.weapon.length-1];
+    return mon.value < last.value;
+  }
+  function baseVal(){ return state.weapon.length?state.weapon[0].value:0; }
+
+  // Potion heal computation with HP cap and per-room “only first heals” rule
+  function potionHealAmount(card){
+    if(state.potionDrunk) return 0;
+    const roomCap = 20 - state.hp;
+    return Math.max(0, Math.min(card.value, roomCap));
+  }
+
+  function attackUnarmed(idx){
+    if(state.over) return;
+    const c=state.room[idx];
+    if(!c || c.type!=="monster") return;
+    const dmg = c.value;
+    state.hp = clampHP(state.hp - dmg);
+    state.discard.push(c);
+    state.room.splice(idx,1);
+    state.moves++;
+    log(`Unarmed vs ${fmt(c)} — took ${dmg}. HP ${state.hp}`, dmg?"bad":"ok");
+    after();
+  }
+
+  function attackWithWeapon(idx){
+    if(state.over) return;
+    const c=state.room[idx];
+    if(!c || c.type!=="monster") return;
+    if(!canUseW(c)) return;
+    const dmg = Math.max(c.value - baseVal(), 0);
+    state.hp = clampHP(state.hp - dmg);
+    // defeated: stack on weapon
+    state.weapon.push(c);
+    state.room.splice(idx,1);
+    state.moves++;
+    log(`Weapon ${fmt(state.weapon[0])} vs ${fmt(c)} — took ${dmg}. HP ${state.hp}`, dmg?"bad":"ok");
+    after();
+  }
+
+  function equip(idx){
+    if(state.over) return;
+    const c=state.room[idx];
+    if(!c || c.type!=="weapon") return;
+    if(state.weapon.length) state.discard.push(...state.weapon);
+    state.weapon=[c];
+    state.room.splice(idx,1);
+    state.moves++;
+    log(`Equipped ${fmt(c)}.`, "ok");
+    after();
+  }
+
+  function drinkPotion(idx){
+    if(state.over) return;
+    const c=state.room[idx];
+    if(!c || c.type!=="potion") return;
+    const heal = potionHealAmount(c);
+    if(heal>0){
+      state.hp = clampHP(state.hp + heal);
+      state.potionDrunk = true;
+      log(`Drank ${fmt(c)} — +${heal} HP. Now ${state.hp}.`,"ok");
+    } else {
+      // already drank this room or no headroom to heal
+      const reason = state.potionDrunk ? "already drank a potion this room" : "HP already at cap";
+      log(`Drank ${fmt(c)} — +0 (${reason}).`);
+      // If not previously drank, but heal 0 due to cap, it still counts as "first potion" (now you've drunk this room)
+      if(!state.potionDrunk) state.potionDrunk = true;
+    }
+    state.discard.push(c);
+    state.room.splice(idx,1);
+    state.moves++;
+    after();
+  }
+
+  function run(){
+    if(state.over) return;
+    if(state.moves>=3){ next(); return; }
+    if(state.room.length!==4 || state.ranLast) return;
+    state.deck.push(...state.room);
+    state.room=[];
+    drawToRoom(4);
+    state.potionDrunk=false;
+    state.moves=0;
+    state.ranLast=true;
+    log("Ran away; drew new room.");
+    render();
+  }
+
+  function next(){
+    if(state.over) return;
+    if(state.moves<3) return;
+    if(!state.deck.length){
+      log("No cards left to draw.");
+      render();
+      return;
+    }
+    state.moves=0;
+    state.potionDrunk=false;
+    state.ranLast=false;
+    drawToRoom(3);
+    log("Next turn: refilled room.");
+    render();
+  }
+
+  function after(){
+    updHUD();
+    if(state.hp<=0){
+      over("Defeated","You’ve been reduced to 0 HP.");
+      return;
+    }
+    if(!state.deck.length && !state.room.length){
+      over("Victory!","You cleared the deck.");
+      return;
+    }
+    render();
+  }
+
+  function over(t,m){
+    state.over=true;
+    modalTitle.textContent=t;
+    modalMsg.textContent=m;
+    overlay.style.display="flex";
+    restartBtn.style.display="inline-block";
+  }
+
+  function render(){
+    updHUD();
+    room.innerHTML="";
+    // Run/Next button state
+    runBtn.textContent = state.moves>=3 ? "Next turn" : "Run";
+    runBtn.disabled = (state.moves<3)
+      ? !(state.room.length===4 && !state.ranLast)  // can only run from a full 4-card room and not twice in a row
+      : (!state.deck.length);                       // next turn disabled if nothing to draw
+
+    const hideSoleCarry = state.moves>=3 && state.deck.length>0 && state.room.length===1;
+
+    state.room.forEach((c,i)=>{
+      const d=document.createElement("div");
+      d.className="card";
+      d.innerHTML = `
+        <div class="face">
+          <span>${c.rank}</span>
+          <span class="suit ${isRed(c.suit)?"red":"blk"}">${c.suit}</span>
+        </div>
+        <div class="kind">${c.type.toUpperCase()}</div>
+      `;
+      const actions=document.createElement("div");
+      actions.className="actions";
+
+      if(!hideSoleCarry){
+        if(c.type==="monster"){
+          const un=document.createElement("button");
+          un.textContent=`Attack (unarmed) — take ${c.value}`;
+          un.onclick=()=>attackUnarmed(i);
+          actions.appendChild(un);
+
+          if(canUseW(c)){
+            const w=document.createElement("button");
+            const dmg = Math.max(c.value - baseVal(), 0);
+            w.textContent=`Attack (weapon ${state.weapon.length?fmt(state.weapon[0]):"—"}) — take ${dmg}`;
+            w.onclick=()=>attackWithWeapon(i);
+            actions.appendChild(w);
+          }
+        } else if(c.type==="weapon"){
+          const b=document.createElement("button");
+          b.textContent=`Equip weapon (value ${c.value})`;
+          b.onclick=()=>equip(i);
+          actions.appendChild(b);
+        } else if(c.type==="potion"){
+          const heal = potionHealAmount(c); // uses per-room restriction and HP cap
+          const b=document.createElement("button");
+          b.textContent=`Drink (+${heal})`;
+          b.onclick=()=>drinkPotion(i);
+          actions.appendChild(b);
+        }
+      } else {
+        const note=document.createElement("div");
+        note.className="kind";
+        note.textContent="Will carry over to next room.";
+        actions.appendChild(note);
+      }
+
+      d.appendChild(actions);
+      room.appendChild(d);
+    });
+
+    // Weapon label & stack
+    const wl=document.getElementById("weaponLabel"), ws=document.getElementById("weaponStack");
+    ws.innerHTML="";
+    if(!state.weapon.length){
+      wl.textContent="None";
+    } else {
+      wl.textContent=`${fmt(state.weapon[0])} (value ${state.weapon[0].value})`;
+      for(let j=1;j<state.weapon.length;j++){
+        const sc=document.createElement("span");
+        sc.className="stackCard";
+        sc.textContent=fmt(state.weapon[j]);
+        ws.appendChild(sc);
+      }
+    }
+  }
+
+  // UI hooks
+  runBtn.onclick = ()=>{ if(state.moves>=3) next(); else run(); };
+  restartBtn.onclick = ()=>{ overlay.style.display="none"; newGame(); };
+  modalRestart.onclick = ()=>{ overlay.style.display="none"; newGame(); };
+  modalKeepGoing.onclick = ()=>{
+    // Restore to full and continue from where you fell
+    overlay.style.display="none";
+    state.over=false;
+    state.hp = 20;
+    updHUD();
+    log("Keep Going! Restored to 20 HP.", "ok");
+    render();
+  };
+
+  // bootstrap
   newGame();
+
+  // handy globals (DOM)
+  function $(id){return document.getElementById(id)}
+  window.hp=$("hp"); window.deckCount=$("deckCount"); window.discardCount=$("discardCount");
+  window.moves=$("moves"); window.room=$("room"); window.runBtn=$("runBtn");
+  window.restartBtn=$("restartBtn"); window.overlay=$("overlay");
+  window.modalTitle=$("modalTitle"); window.modalMsg=$("modalMsg");
+  window.modalRestart=$("modalRestart"); window.modalKeepGoing=$("modalKeepGoing");
+
 })();
 </script>
 </body>
