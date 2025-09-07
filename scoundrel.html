@@ -17,6 +17,7 @@
     --btn:#2a2f51;
     --btn-hover:#36407a;
     --disabled:#404565;
+    --reco:#ffd76a;
   }
   *{box-sizing:border-box}
   body{
@@ -36,7 +37,8 @@
   .title{font-weight:700;}
   .hud{display:flex;gap:18px;flex-wrap:wrap;align-items:center;}
   .stat{background:var(--card);padding:8px 12px;border-radius:10px;border:1px solid #2c3155;font-weight:600;}
-  .row{display:flex;gap:12px;align-items:center;justify-content:space-between;margin:8px 0 14px;}
+  .row{display:flex;gap:12px;align-items:center;justify-content:space-between;margin:8px 0 14px;flex-wrap:wrap}
+  .row .left{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   button{cursor:pointer;background:var(--btn);color:var(--ink);border:1px solid #3a3f6d;border-radius:10px;padding:10px 14px;font-weight:600;}
   button:hover{background:var(--btn-hover);} button:disabled{opacity:.55;cursor:not-allowed;background:var(--disabled);}
   .room{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
@@ -54,6 +56,12 @@
   .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,7,15,.7);}
   .modal{background:var(--panel);padding:20px;border-radius:14px;width:min(92vw,520px);border:1px solid #2a2f51;}
   .modal h2{margin:0 0 8px 0;} .modal p{color:var(--muted);} .modal .actions{flex-direction:row;margin-top:12px;gap:10px;}
+  /* Recommendation highlight */
+  .reco{
+    box-shadow:0 0 0 3px var(--reco) inset, 0 0 0 1px #000;
+    animation: pulse 1s ease-in-out infinite alternate;
+  }
+  @keyframes pulse{from{filter:brightness(1)} to{filter:brightness(1.2)}}
 </style>
 </head>
 <body>
@@ -68,7 +76,10 @@
     </div>
   </header>
   <div class="row">
-    <button id="runBtn">Run</button>
+    <div class="left">
+      <button id="runBtn">Run</button>
+      <button id="recoBtn" title="Suggest the next move">Recommendation</button>
+    </div>
     <div class="pill"><strong>Weapon:</strong>&nbsp;<span id="weaponLabel">None</span>
       <div class="weaponStack" id="weaponStack"></div>
     </div>
@@ -97,6 +108,15 @@
   const clampHP = hp => Math.max(0, Math.min(20, hp)); // cap at 20
   function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
+  // DOM helper
+  function $(id){return document.getElementById(id)}
+
+  // Globals for quick access
+  const hpEl=$("hp"), deckCount=$("deckCount"), discardCount=$("discardCount"), movesEl=$("moves");
+  const roomEl=$("room"), runBtn=$("runBtn"), recoBtn=$("recoBtn"), restartBtn=$("restartBtn");
+  const overlay=$("overlay"), modalTitle=$("modalTitle"), modalMsg=$("modalMsg"), modalRestart=$("modalRestart"), modalKeepGoing=$("modalKeepGoing");
+  const weaponLabel=$("weaponLabel"), weaponStackEl=$("weaponStack");
+
   let state;
 
   function newGame(){
@@ -119,7 +139,8 @@
       potionDrunk:false,
       weapon:[],   // stack [weapon, defeated M1, M2, ...]
       ranLast:false,
-      over:false
+      over:false,
+      reco:null    // {type, idx} or {run:true}
     };
 
     drawToRoom(4);
@@ -139,16 +160,16 @@
     const p=document.createElement("p");
     if(cls) p.className=cls;
     p.textContent=m;
-    const el=document.getElementById("log");
+    const el=$("log");
     el.appendChild(p);
     el.scrollTop=el.scrollHeight;
   }
 
   function updHUD(){
-    hp.textContent=state.hp;
+    hpEl.textContent=state.hp;
     deckCount.textContent=state.deck.length;
     discardCount.textContent=state.discard.length;
-    moves.textContent=state.moves;
+    movesEl.textContent=state.moves;
   }
 
   function canUseW(mon){
@@ -168,6 +189,7 @@
 
   function attackUnarmed(idx){
     if(state.over) return;
+    clearReco();
     const c=state.room[idx];
     if(!c || c.type!=="monster") return;
     const dmg = c.value;
@@ -181,6 +203,7 @@
 
   function attackWithWeapon(idx){
     if(state.over) return;
+    clearReco();
     const c=state.room[idx];
     if(!c || c.type!=="monster") return;
     if(!canUseW(c)) return;
@@ -196,6 +219,7 @@
 
   function equip(idx){
     if(state.over) return;
+    clearReco();
     const c=state.room[idx];
     if(!c || c.type!=="weapon") return;
     if(state.weapon.length) state.discard.push(...state.weapon);
@@ -208,6 +232,7 @@
 
   function drinkPotion(idx){
     if(state.over) return;
+    clearReco();
     const c=state.room[idx];
     if(!c || c.type!=="potion") return;
     const heal = potionHealAmount(c);
@@ -216,10 +241,8 @@
       state.potionDrunk = true;
       log(`Drank ${fmt(c)} — +${heal} HP. Now ${state.hp}.`,"ok");
     } else {
-      // already drank this room or no headroom to heal
       const reason = state.potionDrunk ? "already drank a potion this room" : "HP already at cap";
       log(`Drank ${fmt(c)} — +0 (${reason}).`);
-      // If not previously drank, but heal 0 due to cap, it still counts as "first potion" (now you've drunk this room)
       if(!state.potionDrunk) state.potionDrunk = true;
     }
     state.discard.push(c);
@@ -230,6 +253,7 @@
 
   function run(){
     if(state.over) return;
+    clearReco();
     if(state.moves>=3){ next(); return; }
     if(state.room.length!==4 || state.ranLast) return;
     state.deck.push(...state.room);
@@ -244,6 +268,7 @@
 
   function next(){
     if(state.over) return;
+    clearReco();
     if(state.moves<3) return;
     if(!state.deck.length){
       log("No cards left to draw.");
@@ -279,14 +304,173 @@
     restartBtn.style.display="inline-block";
   }
 
+  // --- Recommendation system ---
+  function clearReco(){ state.reco=null; }
+
+  function cloneState(src){
+    return {
+      hp: src.hp,
+      deck: src.deck.slice(), // deck order unused during 3-move sim
+      discard: src.discard.slice(),
+      room: src.room.map(c=>({...c})),
+      moves: src.moves,
+      potionDrunk: src.potionDrunk,
+      weapon: src.weapon.map(c=>({...c})),
+      ranLast: src.ranLast,
+      over: src.over
+    };
+  }
+
+  function canUseW_in(sim, mon){
+    if(!sim.weapon.length) return false;
+    if(sim.weapon.length===1) return true;
+    const last = sim.weapon[sim.weapon.length-1];
+    return mon.value < last.value;
+  }
+  function baseVal_in(sim){ return sim.weapon.length ? sim.weapon[0].value : 0; }
+  function potionHeal_in(sim, card){
+    if(sim.potionDrunk) return 0;
+    const roomCap = 20 - sim.hp;
+    return Math.max(0, Math.min(card.value, roomCap));
+  }
+
+  function applyAction(sim, action){
+    // action = {type: 'unarmed'|'weapon'|'equip'|'potion', idx:number}
+    if(sim.over) return sim;
+    const c = sim.room[action.idx];
+    if(!c) return sim;
+    if(action.type==='unarmed' && c.type==='monster'){
+      sim.hp = clampHP(sim.hp - c.value);
+      sim.discard.push(c);
+      sim.room.splice(action.idx,1);
+      sim.moves++;
+    } else if(action.type==='weapon' && c.type==='monster'){
+      if(!canUseW_in(sim, c)) return null; // illegal
+      const dmg = Math.max(c.value - baseVal_in(sim), 0);
+      sim.hp = clampHP(sim.hp - dmg);
+      sim.weapon.push(c);
+      sim.room.splice(action.idx,1);
+      sim.moves++;
+    } else if(action.type==='equip' && c.type==='weapon'){
+      if(sim.weapon.length) sim.discard.push(...sim.weapon);
+      sim.weapon=[c];
+      sim.room.splice(action.idx,1);
+      sim.moves++;
+    } else if(action.type==='potion' && c.type==='potion'){
+      const heal = potionHeal_in(sim, c);
+      sim.hp = clampHP(sim.hp + heal);
+      if(heal>0 || !sim.potionDrunk){ sim.potionDrunk = true; }
+      sim.discard.push(c);
+      sim.room.splice(action.idx,1);
+      sim.moves++;
+    } else {
+      return null; // invalid
+    }
+    return sim;
+  }
+
+  function enumerateActions(sim){
+    const acts=[];
+    if(sim.moves>=3) return acts;
+    // actions for each card in room
+    sim.room.forEach((c, idx)=>{
+      if(c.type==='monster'){
+        acts.push({type:'unarmed', idx});
+        if(canUseW_in(sim, c)) acts.push({type:'weapon', idx});
+      } else if(c.type==='weapon'){
+        acts.push({type:'equip', idx});
+      } else if(c.type==='potion'){
+        acts.push({type:'potion', idx}); // Drink (+heal or +0) is always allowed
+      }
+    });
+    return acts;
+  }
+
+  // Try all legal sequences of exactly 3 actions from current room; pick best surviving (max HP)
+  function computeRecommendation(){
+    const start = cloneState(state);
+    start.reco=null;
+
+    // If we already took moves in this room, we still recommend from *now* up to 3 total
+    function dfs(sim, seq){
+      if(sim.moves>=3 || sim.hp<=0){
+        return [{seq, hp: sim.hp, ok: sim.hp>0}];
+      }
+      const results=[];
+      const acts = enumerateActions(sim);
+      for(const a of acts){
+        const sim2 = cloneState(sim);
+        const applied = applyAction(sim2, {...a});
+        if(!applied) continue;
+        results.push(...dfs(applied, seq.concat(a)));
+      }
+      // If no actions (empty room or only 1 card & deck empty), still return terminal
+      if(results.length===0){
+        results.push({seq, hp: sim.hp, ok: sim.hp>0});
+      }
+      return results;
+    }
+
+    const all = dfs(start, []);
+    // Filter to sequences that end with moves==3 (or fewer if room exhausted) and hp>0
+    const survivable = all.filter(r => r.ok);
+    if(survivable.length){
+      // Choose max hp; tie-break by fewest total damage then by preferring using weapon when possible (not necessary)
+      survivable.sort((a,b)=> b.hp - a.hp);
+      const best = survivable[0];
+      // Recommend first action of the best sequence, if any; otherwise, if already at 3 moves, recommend Next turn
+      const next = best.seq[0];
+      if(next){
+        return {type: next.type, idx: next.idx};
+      } else {
+        // No action needed (strange corner); recommend Next turn if available
+        return {nextTurn:true};
+      }
+    } else {
+      // No survivable sequence; if can run, suggest run
+      const canRun = (state.moves<3 && state.room.length===4 && !state.ranLast);
+      if(canRun) return {run:true};
+      return {dire:true};
+    }
+  }
+
+  function recommend(){
+    clearReco();
+    const r = computeRecommendation();
+    if(r.run){
+      state.reco = {run:true};
+      log("Recommendation: Run.", "bad");
+    } else if(r.nextTurn){
+      state.reco = {nextTurn:true};
+      log("Recommendation: Next turn.", "ok");
+    } else if(r.dire){
+      log("Things look dire.");
+      state.reco = null;
+    } else if(r && typeof r.idx==="number"){
+      state.reco = {type:r.type, idx:r.idx};
+      const c = state.room[r.idx];
+      const actionName = r.type==='unarmed' ? "Attack unarmed" :
+                         r.type==='weapon'  ? "Attack with weapon" :
+                         r.type==='equip'   ? "Equip weapon" :
+                         r.type==='potion'  ? "Drink potion" : "Move";
+      log(`Recommendation: ${actionName} on ${fmt(c)}.`, "ok");
+    }
+    render(); // to apply highlight
+  }
+
+  // --- Rendering ---
   function render(){
     updHUD();
-    room.innerHTML="";
+    roomEl.innerHTML="";
+
     // Run/Next button state
     runBtn.textContent = state.moves>=3 ? "Next turn" : "Run";
     runBtn.disabled = (state.moves<3)
-      ? !(state.room.length===4 && !state.ranLast)  // can only run from a full 4-card room and not twice in a row
-      : (!state.deck.length);                       // next turn disabled if nothing to draw
+      ? !(state.room.length===4 && !state.ranLast)
+      : (!state.deck.length);
+
+    // Apply recommendation highlight to Run / Next turn if applicable
+    runBtn.classList.toggle("reco", !!(state.reco && (state.reco.run || state.reco.nextTurn)));
 
     const hideSoleCarry = state.moves>=3 && state.deck.length>0 && state.room.length===1;
 
@@ -303,31 +487,41 @@
       const actions=document.createElement("div");
       actions.className="actions";
 
+      // Helper to attach and mark reco
+      function addAction(btn, type){
+        btn.dataset.idx = i;
+        btn.dataset.action = type;
+        if(state.reco && state.reco.idx==i && state.reco.type===type){
+          btn.classList.add("reco");
+        }
+        actions.appendChild(btn);
+      }
+
       if(!hideSoleCarry){
         if(c.type==="monster"){
           const un=document.createElement("button");
           un.textContent=`Attack (unarmed) — take ${c.value}`;
           un.onclick=()=>attackUnarmed(i);
-          actions.appendChild(un);
+          addAction(un, 'unarmed');
 
           if(canUseW(c)){
             const w=document.createElement("button");
             const dmg = Math.max(c.value - baseVal(), 0);
             w.textContent=`Attack (weapon ${state.weapon.length?fmt(state.weapon[0]):"—"}) — take ${dmg}`;
             w.onclick=()=>attackWithWeapon(i);
-            actions.appendChild(w);
+            addAction(w, 'weapon');
           }
         } else if(c.type==="weapon"){
           const b=document.createElement("button");
           b.textContent=`Equip weapon (value ${c.value})`;
           b.onclick=()=>equip(i);
-          actions.appendChild(b);
+          addAction(b, 'equip');
         } else if(c.type==="potion"){
           const heal = potionHealAmount(c); // uses per-room restriction and HP cap
           const b=document.createElement("button");
           b.textContent=`Drink (+${heal})`;
           b.onclick=()=>drinkPotion(i);
-          actions.appendChild(b);
+          addAction(b, 'potion');
         }
       } else {
         const note=document.createElement("div");
@@ -337,27 +531,27 @@
       }
 
       d.appendChild(actions);
-      room.appendChild(d);
+      roomEl.appendChild(d);
     });
 
     // Weapon label & stack
-    const wl=document.getElementById("weaponLabel"), ws=document.getElementById("weaponStack");
-    ws.innerHTML="";
+    weaponStackEl.innerHTML="";
     if(!state.weapon.length){
-      wl.textContent="None";
+      weaponLabel.textContent="None";
     } else {
-      wl.textContent=`${fmt(state.weapon[0])} (value ${state.weapon[0].value})`;
+      weaponLabel.textContent=`${fmt(state.weapon[0])} (value ${state.weapon[0].value})`;
       for(let j=1;j<state.weapon.length;j++){
         const sc=document.createElement("span");
         sc.className="stackCard";
         sc.textContent=fmt(state.weapon[j]);
-        ws.appendChild(sc);
+        weaponStackEl.appendChild(sc);
       }
     }
   }
 
   // UI hooks
   runBtn.onclick = ()=>{ if(state.moves>=3) next(); else run(); };
+  recoBtn.onclick = recommend;
   restartBtn.onclick = ()=>{ overlay.style.display="none"; newGame(); };
   modalRestart.onclick = ()=>{ overlay.style.display="none"; newGame(); };
   modalKeepGoing.onclick = ()=>{
@@ -372,15 +566,6 @@
 
   // bootstrap
   newGame();
-
-  // handy globals (DOM)
-  function $(id){return document.getElementById(id)}
-  window.hp=$("hp"); window.deckCount=$("deckCount"); window.discardCount=$("discardCount");
-  window.moves=$("moves"); window.room=$("room"); window.runBtn=$("runBtn");
-  window.restartBtn=$("restartBtn"); window.overlay=$("overlay");
-  window.modalTitle=$("modalTitle"); window.modalMsg=$("modalMsg");
-  window.modalRestart=$("modalRestart"); window.modalKeepGoing=$("modalKeepGoing");
-
 })();
 </script>
 </body>
