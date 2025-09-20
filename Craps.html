@@ -1,301 +1,259 @@
+<!-- craps.html – subset-of-craps web app
+     Copyright © 2025 Matthew Laubach
+     MIT License – see https://opensource.org/licenses/MIT                           -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Craps: Pass, Come, & Odds (10x default)</title>
+<meta charset="utf-8">
+<title>Subset-of-Craps (Pass / Come / Odds)</title>
 <style>
-  :root {
-    --bg: #0b1020;
-    --panel: #151a2b;
-    --accent: #57d5a0;
-    --muted: #a8b3c7;
-    --danger: #ff6b6b;
-    --win: #7fffd4;
-    --lose: #ffb3b3;
-    --warn: #ffd166;
-    --text: #e7ecf6;
-    --chip: #2e3653;
-  }
-  html, body { height: 100%; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-    color: var(--text);
-    background: radial-gradient(1200px 800px at 20% -10%, #1e2644 0%, var(--bg) 50%);
-  }
-  header {
-    padding: 16px 20px;
-    background: linear-gradient(180deg, #151a2b 0%, #101629 100%);
-    border-bottom: 1px solid #243059;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-  header h1 {
-    margin: 0 0 6px;
-    font-size: 18px;
-    letter-spacing: .4px;
-  }
-  header .sub { color: var(--muted); font-size: 12px; }
-  .wrap { display: flex; gap: 16px; padding: 16px; }
-  .left { flex: 0 0 320px; }
-  .center { flex: 1; display: flex; flex-direction: column; gap: 16px; }
-  .card {
-    background: var(--panel);
-    border: 1px solid #243059;
-    border-radius: 10px;
-    padding: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.25);
-  }
-  .card h2 {
-    margin: 0 0 10px;
-    font-size: 16px;
-    color: var(--accent);
-    letter-spacing: .3px;
-  }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .row + .row { margin-top: 10px; }
-  .pill {
-    background: #1a2140;
-    border: 1px solid #2b386a;
-    padding: 8px 10px;
-    border-radius: 999px;
-    font-size: 14px;
-    color: var(--muted);
-  }
-  .btn {
-    background: #223061;
-    border: 1px solid #32447d;
-    color: #e7ecf6;
-    border-radius: 8px;
-    padding: 12px 14px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 15px;
-    transition: transform .02s ease, background .2s ease;
-  }
-  .btn:hover { background: #2a3970; }
-  .btn:active { transform: translateY(1px); }
-  .btn.primary { background: #1f7a5d; border-color: #1a6a51; }
-  .btn.danger { background: #7a1f1f; border-color: #6a1a1a; }
-  .btn.ghost { background: transparent; border-color: #3b4b88; }
-  .stat {
-    background: #0f1530;
-    border: 1px dashed #2c3b74;
-    padding: 8px 10px;
-    border-radius: 8px;
-    font-size: 14px;
-  }
-  .big { font-size: 18px; font-weight: 800; color: #ffffff; }
-  .table {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 10px;
-    margin-top: 8px;
-  }
-  .box {
-    background: #111736;
-    border: 1px solid #253264;
-    border-radius: 10px;
-    padding: 10px;
-    min-height: 84px;
-  }
-  .box h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); display:flex; justify-content:space-between; }
-  .chip {
-    display: inline-block;
-    background: var(--chip);
-    border: 1px solid #4a5b9d;
-    border-radius: 999px;
-    padding: 4px 8px;
-    font-size: 12px;
-    margin: 2px 4px 0 0;
-  }
-  .chip.odds { border-color: #79a8ff; color: #cfe2ff; }
-  .muted { color: var(--muted); }
-  #log {
-    height: 280px;
-    overflow: auto;
-    background: #0d122a;
-    border: 1px solid #22306b;
-    border-radius: 8px;
-    padding: 10px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono";
-    font-size: 13px;
-    line-height: 1.4;
-    white-space: pre-wrap;
-  }
+    :root { font-family: system-ui, sans-serif; }
+    body   { margin: 0; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+    h1     { margin: 0 0 .5rem 0; font-size: 1.5rem; }
+
+    /* layout */
+    #table      { display: flex; flex-wrap: wrap; gap: .6rem; }
+    .panel      { padding: .8rem 1rem; border: 2px solid #444; border-radius: 8px; }
+    .panel h2   { margin: 0 0 .4rem; font-size: 1.1rem; }
+    #log        { height: 11rem; overflow-y: auto; font-family: ui-monospace, monospace;
+                  background:#111; color:#0f0; padding:.6rem; border-radius:4px; }
+
+    /* buttons / inputs */
+    button, input[type=number] {
+        font-size: 1rem; padding: .4rem .8rem; border-radius: 6px; border: 1px solid #333;
+        transition: background .2s;
+    }
+    button:disabled {
+        opacity: .35; cursor: not-allowed;
+    }
+    button:not(:disabled):hover {
+        background: #ececec;
+    }
+    .money      { font-weight: 600; }
+    .dice       { font-size: 1.3rem; font-weight: 600; }
+
+    /* compact flex rows */
+    .row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 </style>
 </head>
 <body>
-<header>
-  <h1>🎲 Craps — Pass / Come / Odds</h1>
-  <div class="sub">Bankroll $100, Base $1, Max odds 10×. Only Pass, Come & Odds are supported.</div>
-</header>
 
-<div class="wrap">
-  <!-- LEFT controls -->
-  <div class="left card">
-    <h2>Controls</h2>
-    <div class="row">
-      <div class="stat">Bankroll: <span id="bankroll" class="big">$100</span></div>
-      <button class="btn ghost" id="btnSetBank">Set Bankroll…</button>
-    </div>
-    <div class="row">
-      <div class="stat">Base Bet: <span id="basebet" class="big">$1</span></div>
-      <button class="btn ghost" id="btnSetBase">Set Base Bet…</button>
-    </div>
-    <div class="row">
-      <div class="stat">Max Odds: <span id="oddsRule" class="big">10×</span></div>
-      <select id="oddsSelect">
-        <option value="1x">1×</option>
-        <option value="2x">2×</option>
-        <option value="3x">3×</option>
-        <option value="5x">5×</option>
-        <option value="10x" selected>10×</option>
-        <option value="345x">3-4-5×</option>
-      </select>
-    </div>
-    <div class="row">
-      <label>
-        <input type="checkbox" id="oddsOffOnComeOut" checked />
-        Odds OFF on Come-Out
-      </label>
-    </div>
-    <hr />
-    <div class="row">
-      <button class="btn primary" id="btnPass">Bet PASS</button>
-      <button class="btn primary" id="btnCome">Bet COME</button>
-    </div>
-    <div class="row">
-      <button class="btn" id="btnMaxOdds">Max Odds (All)</button>
-      <button class="btn ghost" id="btnClearOdds">Remove Odds</button>
-    </div>
-    <div class="row">
-      <button class="btn" id="btnCancelBets">Cancel Unset</button>
-      <button class="btn danger" id="btnReset">Reset</button>
-    </div>
-    <div class="row">
-      <button class="btn" id="btnRoll" style="flex:1; font-size:18px;">🎲 ROLL</button>
-    </div>
-  </div>
+<h1>Subset-of-Craps</h1>
 
-  <!-- CENTER table + log -->
-  <div class="center">
-    <div class="card">
-      <h2>Table</h2>
-      <div class="row">
-        <div class="pill">Shooter: <span id="state">Come-Out</span></div>
-        <div class="pill">Point: <span id="point">—</span></div>
-        <div class="pill">Dice: <span id="dice">—</span></div>
-      </div>
-      <div class="row" style="margin-top:10px;">
-        <div class="box" style="flex:1">
-          <h3>PASS <span id="passLineAmt" class="chip">$0</span></h3>
-          <div class="muted" id="passLineDetail">PASS bet details</div>
-          <div id="passOddsRow" style="display:none;">
-            <span class="chip odds" id="passOddsChip">Odds: $0</span>
-          </div>
-        </div>
-        <div class="box" style="flex:1">
-          <h3>COME <span id="comeAmtWaiting" class="chip">$0</span></h3>
-          <div class="muted">Waiting to travel</div>
-        </div>
-      </div>
-      <div class="table">
-        <div class="box"><h3>4 <span id="flat-4" class="chip">$0</span></h3><div><span class="chip odds" id="odds-4">Odds: $0</span></div></div>
-        <div class="box"><h3>5 <span id="flat-5" class="chip">$0</span></h3><div><span class="chip odds" id="odds-5">Odds: $0</span></div></div>
-        <div class="box"><h3>6 <span id="flat-6" class="chip">$0</span></h3><div><span class="chip odds" id="odds-6">Odds: $0</span></div></div>
-        <div class="box"><h3>8 <span id="flat-8" class="chip">$0</span></h3><div><span class="chip odds" id="odds-8">Odds: $0</span></div></div>
-        <div class="box"><h3>9 <span id="flat-9" class="chip">$0</span></h3><div><span class="chip odds" id="odds-9">Odds: $0</span></div></div>
-        <div class="box"><h3>10 <span id="flat-10" class="chip">$0</span></h3><div><span class="chip odds" id="odds-10">Odds: $0</span></div></div>
-      </div>
-    </div>
+<div id="table">
 
-    <!-- Log moved under table -->
-    <div class="card">
-      <h2>Actions & Results</h2>
-      <div id="log" aria-live="polite"></div>
+<!-- status panel -->
+<div class="panel">
+    <h2>Status</h2>
+    <div class="row">Bankroll: <span id="bankroll" class="money">$100</span>
+        <button id="btnBankroll">Set&nbsp;Bankroll</button>
     </div>
-  </div>
+    <div class="row">Base Bet: <span id="baseBet" class="money">$1</span>
+        <button id="btnBetSize">Set&nbsp;Bet</button>
+    </div>
+    <div class="row">Max Odds: <span id="maxOdds">10×</span>
+        <button id="btnOddsMax">Set&nbsp;Max</button>
+    </div>
+    <div class="row">Point: <span id="point">–</span></div>
+    <div class="row">Dice: <span id="dice" class="dice">-</span></div>
+    <div class="row"><label><input type="checkbox" id="oddsOnComeOut" checked>
+        Odds active after point (OFF during come-out)</label></div>
 </div>
 
+<!-- betting panel -->
+<div class="panel">
+    <h2>Actions</h2>
+    <div class="row">
+        <button id="btnPass">Pass</button>
+        <button id="btnCome">Come</button>
+        <button id="btnOdds">Odds</button>
+        <button id="btnRoll">Roll Dice</button>
+    </div>
+</div>
+
+<!-- active bets -->
+<div class="panel" style="flex:1 1 12rem">
+    <h2>Active Bets</h2>
+    <div id="bets"></div>
+</div>
+
+</div><!-- /table -->
+
+<div id="log"></div>
+
 <script>
-(function(){
-  const $ = s=>document.querySelector(s);
-  const fmt=v=>"$"+v.toFixed(2).replace(/\.00$/,'');
-  function log(m){const d=$("#log");const e=document.createElement("div");e.textContent="["+new Date().toLocaleTimeString()+"] "+m;d.appendChild(e);d.scrollTop=d.scrollHeight;}
+/* ---------- State ------------------------------------------------------- */
+let bankroll = 100;
+let baseBet  = 1;
+let maxOdds  = 10;
+let point    = null;        // current table point, null when off
+let passBet  = null;        // {flat, odds}
+let comeBets = [];          // [{point, flat, odds}]
+let rng      = () => Math.floor(Math.random()*6)+1;
 
-  function randDie(){return Math.floor(Math.random()*6)+1;}
+/* ---------- Helpers ----------------------------------------------------- */
+const $ = id => document.getElementById(id);
+const log = msg => { $("log").textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+                     $("log").scrollTop = $("log").scrollHeight; };
 
-  const state={bankroll:100,baseBet:1,phase:"comeout",point:null,pass:0,passOdds:0,comeWaiting:0,
-    comes:{4:{flat:0,odds:0},5:{flat:0,odds:0},6:{flat:0,odds:0},8:{flat:0,odds:0},9:{flat:0,odds:0},10:{flat:0,odds:0}},
-    oddsRule:"10x",oddsOffOnComeOut:true};
+function money(x){ return "$"+x.toFixed(2); }
 
-  function sync(){
-    $("#bankroll").textContent=fmt(state.bankroll);
-    $("#basebet").textContent=fmt(state.baseBet);
-    $("#oddsRule").textContent=state.oddsRule;
-    $("#oddsSelect").value=state.oddsRule;
-    $("#oddsOffOnComeOut").checked=state.oddsOffOnComeOut;
-    $("#state").textContent=state.phase==="comeout"?"Come-Out":"Point";
-    $("#point").textContent=state.point||"—";
-    $("#passLineAmt").textContent=fmt(state.pass);
-    $("#passOddsRow").style.display=state.passOdds>0?"":"none";
-    $("#passOddsChip").textContent="Odds: "+fmt(state.passOdds);
-    $("#comeAmtWaiting").textContent=fmt(state.comeWaiting);
-    [4,5,6,8,9,10].forEach(n=>{
-      $("#flat-"+n).textContent=fmt(state.comes[n].flat);
-      $("#odds-"+n).textContent="Odds: "+fmt(state.comes[n].odds);
-    });
-  }
+function updateUI(){
+    $("bankroll").textContent = money(bankroll);
+    $("baseBet").textContent  = money(baseBet);
+    $("maxOdds").textContent  = maxOdds + "×";
+    $("point").textContent    = point ?? "–";
+    $("dice").textContent     = "-";
 
-  function roll(){
-    const d1=randDie(),d2=randDie(),sum=d1+d2;
-    $("#dice").textContent=`${d1}+${d2}=${sum}`;
-    log(`Rolled ${d1}+${d2}=${sum}`);
-    if(state.phase==="comeout") resolveComeOut(sum); else resolvePoint(sum);
-    sync();
-  }
+    // Enable/disable buttons
+    $("btnPass").disabled   = point !== null || bankroll < baseBet;
+    $("btnCome").disabled   = bankroll < baseBet;
+    $("btnOdds").disabled   = eligibleForOdds().length===0;
+    $("btnOddsMax").disabled= point !== null;   // change max only when no point
+    $("btnRoll").disabled   = false;
 
-  function resolveComeOut(sum){
-    if(sum===7||sum===11){
-      if(state.pass>0){const win=state.pass;state.bankroll+=state.pass+win;log(`PASS wins ${fmt(win)}.`);state.pass=0;}
-      if(state.comeWaiting>0){const win=state.comeWaiting;state.bankroll+=state.comeWaiting+win;log(`COME waiting wins ${fmt(win)}.`);state.comeWaiting=0;}
-      return;
+    // render bets table
+    const wrap = $("bets");
+    wrap.innerHTML = "";
+    if(passBet){
+        wrap.appendChild(line(`Pass (point ${point??'–'})`, passBet.flat, passBet.odds));
     }
-    if(sum===2||sum===3||sum===12){
-      if(state.pass>0){log(`PASS loses ${fmt(state.pass)}.`);state.pass=0;}
-      if(state.comeWaiting>0){log(`COME waiting loses ${fmt(state.comeWaiting)}.`);state.comeWaiting=0;}
-      return;
+    for(const cb of comeBets){
+        wrap.appendChild(line(`Come @ ${cb.point}`, cb.flat, cb.odds));
     }
-    state.point=sum;state.phase="point";log(`Point set to ${sum}.`);
-  }
-
-  function resolvePoint(sum){
-    // handle come waiting first
-    if(state.comeWaiting>0){
-      if(sum===7){log(`COME waiting loses ${fmt(state.comeWaiting)}.`);state.comeWaiting=0;}
-      else if(sum===11){const win=state.comeWaiting;state.bankroll+=state.comeWaiting+win;log(`COME waiting wins ${fmt(win)}.`);state.comeWaiting=0;}
-      else if([2,3,12].includes(sum)){log(`COME waiting loses ${fmt(state.comeWaiting)}.`);state.comeWaiting=0;}
-      else { state.comes[sum].flat+=state.comeWaiting; log(`COME ${fmt(state.comeWaiting)} moves to ${sum}.`); state.comeWaiting=0; }
+    if(!passBet && comeBets.length===0){
+        wrap.textContent = "None";
     }
-    if(sum===7){log("Seven-out: all lose.");state.pass=state.passOdds=0;Object.keys(state.comes).forEach(n=>state.comes[n]={flat:0,odds:0});state.phase="comeout";state.point=null;return;}
-    if(sum===state.point){log(`Point ${sum} made! PASS pays.`);state.pass=0;state.passOdds=0;state.phase="comeout";state.point=null;return;}
-    if([4,5,6,8,9,10].includes(sum)){
-      const c=state.comes[sum];if(c.flat>0){const win=c.flat;state.bankroll+=c.flat+win;log(`COME on ${sum} wins ${fmt(win)}.`);c.flat=0;c.odds=0;}
+    function line(label, flat, odds){
+        const div = document.createElement("div");
+        div.textContent = `${label}: Flat ${money(flat)}${odds?` + Odds ${money(odds)}`:""}`;
+        return div;
     }
-  }
+}
 
-  $("#btnRoll").onclick=roll;
-  $("#btnPass").onclick=()=>{if(state.phase!=="comeout"){log("PASS only on come-out.");return;}if(state.bankroll>=state.baseBet){state.pass+=state.baseBet;state.bankroll-=state.baseBet;log(`Bet PASS ${fmt(state.baseBet)}`);}sync();};
-  $("#btnCome").onclick=()=>{if(state.bankroll>=state.baseBet){state.comeWaiting+=state.baseBet;state.bankroll-=state.baseBet;log(`Bet COME ${fmt(state.baseBet)}`);}sync();};
-  $("#btnSetBank").onclick=()=>{const n=+prompt("Bankroll:",state.bankroll);if(n>=0){state.bankroll=n;log(`Bankroll set ${fmt(n)}`);}sync();};
-  $("#btnSetBase").onclick=()=>{const n=+prompt("Base bet:",state.baseBet);if(n>0){state.baseBet=n;log(`Base bet set ${fmt(n)}`);}sync();};
-  $("#btnReset").onclick=()=>{Object.assign(state,{bankroll:100,baseBet:1,phase:"comeout",point:null,pass:0,passOdds:0,comeWaiting:0,comes:{4:{flat:0,odds:0},5:{flat:0,odds:0},6:{flat:0,odds:0},8:{flat:0,odds:0},9:{flat:0,odds:0},10:{flat:0,odds:0}},oddsRule:"10x",oddsOffOnComeOut:true});$("#log").textContent="";log("Reset.");sync();};
+function payOdds(mult, point){
+    // true odds: 2:1 on 4/10, 3:2 on 5/9, 6:5 on 6/8
+    return mult * (
+        (point===4||point===10)?2 :
+        (point===5||point===9)?1.5 : 1.2 );  // 6:5 = 1.2
+}
 
-  log("Welcome!");sync();
-})();
+function eligibleForOdds(){
+    const arr=[];
+    if(passBet && passBet.odds===0 && point) arr.push(passBet);
+    for(const cb of comeBets) if(cb.odds===0) arr.push(cb);
+    return arr;
+}
+
+/* ---------- Game actions ------------------------------------------------ */
+function newPass(){
+    bankroll -= baseBet;
+    passBet = {flat:baseBet, odds:0};
+    log(`Bet PASS ${money(baseBet)}.`);
+}
+
+function newCome(){
+    bankroll -= baseBet;
+    comeBets.push({point:null, flat:baseBet, odds:0});
+    log(`Bet COME ${money(baseBet)} (waiting to travel).`);
+}
+
+function takeOdds(){
+    const targets = eligibleForOdds();
+    let total=0;
+    for(const b of targets){
+        const o = Math.min(maxOdds * b.flat, bankroll - total);
+        if(o>0){ b.odds = o; total+=o; }
+    }
+    bankroll -= total;
+    if(total>0) log(`Odds taken: ${money(total)} on ${targets.length} bet(s).`);
+}
+
+function resolveBet(winFlat, bet){
+    const {point:p, flat, odds} = bet;
+    if(winFlat){
+        bankroll += flat * 2;           // even-money
+        if(odds && (point || p)) bankroll += odds + payOdds(odds, point||p);
+    }else{
+        // lose: nothing (flat & odds already removed from bankroll)
+    }
+}
+
+function rollDice(){
+    const d1=rng(), d2=rng(), sum=d1+d2;
+    $("dice").textContent = `${d1} + ${d2} = ${sum}`;
+    if(point===null){          /* COME-OUT */
+        if(sum===7||sum===11){
+            if(passBet){ bankroll += passBet.flat*2; log(`PASS wins ${money(passBet.flat)}.`); passBet=null; }
+            log(`Natural ${sum}. New come-out.`);
+        }else if(sum===2||sum===3||sum===12){
+            if(passBet){ log(`Craps ${sum}. PASS loses.`); passBet=null; }
+        }else{
+            point=sum; log(`Point is set to ${point}.`);
+        }
+    }else{                      /* POINT ON */
+        if(sum===point){
+            resolveBet(true,passBet);
+            log(`Point ${point} hit! PASS paid.`);
+            point=null; passBet=null;
+        }else if(sum===7){
+            log(`Seven-out. All odds and flat bets lose.`);
+            passBet=null; point=null;
+            comeBets=[]; // all lose
+        }
+    }
+    /* Handle COME bets in all cases except on the roll they were placed */
+    for(const cb of [...comeBets]){          // clone because we may splice
+        if(cb.point===null){                 // this is first roll after placement
+            if(sum===7||sum===11){
+                bankroll += cb.flat*2;       // immediate win
+                log(`COME wins on ${sum}: +${money(cb.flat)}.`);
+                comeBets.splice(comeBets.indexOf(cb),1);
+            }else if(sum===2||sum===3||sum===12){
+                log(`COME craps on ${sum}.`);
+                comeBets.splice(comeBets.indexOf(cb),1);
+            }else{
+                cb.point=sum; log(`COME ${money(cb.flat)} travels to ${sum}.`);
+            }
+        }else{
+            if(sum===cb.point){
+                resolveBet(true,cb);
+                log(`COME on ${cb.point} hit! Paid flat${cb.odds?"+odds":""}.`);
+                comeBets.splice(comeBets.indexOf(cb),1);
+            }else if(sum===7){
+                // handled above: all lose
+            }
+        }
+    }
+    if(sum===7 && point!==null){
+        /* come-bet seven-out already handled */
+    }
+    updateUI();
+}
+
+/* ---------- Event wiring ----------------------------------------------- */
+$("btnPass").onclick  = () => { newPass(); updateUI(); };
+$("btnCome").onclick  = () => { newCome(); updateUI(); };
+$("btnOdds").onclick  = () => { takeOdds(); updateUI(); };
+$("btnRoll").onclick  = rollDice;
+
+$("btnBankroll").onclick = () => {
+    const v = parseFloat(prompt("Enter new bankroll:", bankroll));
+    if(!isNaN(v)&&v>=0){ bankroll=v; log(`Bankroll set to ${money(v)}.`); updateUI(); }
+};
+$("btnBetSize").onclick = () => {
+    const v = parseFloat(prompt("Enter base bet size:", baseBet));
+    if(!isNaN(v)&&v>0){ baseBet=v; log(`Base bet set to ${money(v)}.`); updateUI(); }
+};
+$("btnOddsMax").onclick = () => {
+    const v = parseInt(prompt("Enter max odds multiple (e.g., 1-100):", maxOdds),10);
+    if(!isNaN(v)&&v>0){ maxOdds=v; log(`Max odds multiple set to ${v}×.`); updateUI(); }
+};
+
+/* ---------- Init -------------------------------------------------------- */
+log("Welcome! Bankroll $100. Base bet $1. Max odds 10×.");
+updateUI();
 </script>
 </body>
 </html>
