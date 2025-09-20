@@ -62,40 +62,46 @@
     <div id="bets"></div>
 </div>
 
-</div><!-- /table -->
+</div>
 
 <div id="log"></div>
 
 <script>
-/* ---------- Session-level ------------------------------------------- */
-let bankroll = 100, baseBet = 1, maxOdds = 10;
-const sessionStart = bankroll;
-let gamesCompleted = 0;
+/* ---------- session & table state ---------------------------------- */
+let bankroll=100, baseBet=1, maxOdds=10;
+const sessionStart=bankroll;
+let gamesCompleted=0;
 
-/* ---------- Table state --------------------------------------------- */
-let point = null;
-let passBet = null;          // {type, point, flat, odds, delta, result}
-let comeBets = [];
-let comeWaiting = false;     // disables Come until a roll occurs
+let point=null;
+let passBet=null;          // {type, point, flat, odds, result?, delta?}
+let comeBets=[];           // array of same shape objects
+let comeWaiting=false;
 
-const dieCh = ["\u2680","\u2681","\u2682","\u2683","\u2684","\u2685"];
-const $ = id => document.getElementById(id);
+const dieCh=["\u2680","\u2681","\u2682","\u2683","\u2684","\u2685"];
+const $=id=>document.getElementById(id);
 
-/* ---------- Logging helper (copy-safe) ------------------------------ */
-function log(msg){
-    const d=document.createElement("div");
-    d.textContent = msg;
-    $("log").appendChild(d);
-    $("log").scrollTop = $("log").scrollHeight;
+/* ---------- utilities ---------------------------------------------- */
+const log=t=>{const d=document.createElement("div");d.textContent=t;$("log").appendChild(d);$("log").scrollTop=$("log").scrollHeight;};
+const money=x=>"$"+x.toFixed(2);
+const oddsRate=p=>(p===4||p===10)?2:(p===5||p===9)?1.5:1.2;
+
+/* ---------- calc helpers ------------------------------------------- */
+function totalOutstanding(){
+    let t=0;
+    if(passBet && !passBet.result) t+=passBet.flat+passBet.odds;
+    for(const c of comeBets) if(!c.result) t+=c.flat+c.odds;
+    return t;
+}
+function stateLine(){
+    const bets=totalOutstanding();
+    const total=bankroll+bets;
+    const diff=total-sessionStart;
+    log(`Bankroll ${money(bankroll)}, Bets ${money(bets)}, Total ${money(total)} (${diff>=0?"Up":"Down"} ${money(Math.abs(diff))})`);
 }
 
-/* ---------- Money & odds helpers ------------------------------------ */
-const money = x => "$"+x.toFixed(2);
-const oddsRate = p => (p===4||p===10)?2 : (p===5||p===9)?1.5 : 1.2;
-
-/* ---------- Bets list render ---------------------------------------- */
-function renderBetsList(){
-    const list = [];
+/* ---------- UI update ---------------------------------------------- */
+function renderBets(){
+    const list=[];
     if(passBet) list.push(passBet);
     list.push(...comeBets);
     list.sort((a,b)=>{
@@ -103,39 +109,25 @@ function renderBetsList(){
         if(ka!==kb) return ka-kb;
         return a.type==="pass"?-1:1;
     });
-
-    const wrap=$("bets"); wrap.innerHTML="";
-    if(!list.length){ wrap.textContent="None"; return; }
-
+    const wrap=$("bets");wrap.innerHTML="";
+    if(!list.length){wrap.textContent="None";return;}
     for(const b of list){
-        const lbl = b.type==="pass"?`Pass (${b.point??"–"})`:`Come @ ${b.point??"?"}`;
+        const lbl=b.type==="pass"?`Pass (${b.point??"–"})`:`Come @ ${b.point??"?"}`;
         const stake=`Flat ${money(b.flat)}${b.odds?` + Odds ${money(b.odds)}`:""}`;
         const delta=b.result?` ${b.result==="win"?"+":"-"}${money(Math.abs(b.delta))}`:"";
-        const line=document.createElement("div");
-        line.textContent=`${lbl}: ${stake}${delta}`;
-        if(b.result==="win") line.className="win";
-        if(b.result==="lose") line.className="lose";
-        wrap.appendChild(line);
+        const div=document.createElement("div");
+        div.textContent=`${lbl}: ${stake}${delta}`;
+        if(b.result==="win") div.className="win";
+        if(b.result==="lose") div.className="lose";
+        wrap.appendChild(div);
     }
 }
-
-/* ---------- Outstanding live money ---------------------------------- */
-function totalOutstanding(){
-    let t=0;
-    if(passBet && !passBet.result) t+=passBet.flat+passBet.odds;
-    for(const c of comeBets) if(!c.result) t+=c.flat+c.odds;
-    return t;
+function eligibleForOdds(){
+    const a=[];
+    if(passBet && passBet.odds===0 && point!==null) a.push(passBet);
+    for(const c of comeBets) if(c.point!==null && c.odds===0) a.push(c);
+    return a;
 }
-
-/* ---------- State line with up/down --------------------------------- */
-function stateLine(){
-    const bets = totalOutstanding();
-    const total = bankroll + bets;
-    const diff = total - sessionStart;
-    log(`Bankroll ${money(bankroll)}, Bets ${money(bets)}, Total ${money(total)} (${diff>=0?"Up":"Down"} ${money(Math.abs(diff))})`);
-}
-
-/* ---------- UI refresh ---------------------------------------------- */
 function updateUI(drawList=true){
     $("bankroll").textContent=money(bankroll);
     $("baseBet").textContent =money(baseBet);
@@ -149,44 +141,10 @@ function updateUI(drawList=true){
     $("btnRoll").disabled = point===null && !activePass;
     $("btnOddsMax").disabled = point!==null;
 
-    if(drawList) renderBetsList();
+    if(drawList) renderBets();
 }
 
-/* ---------- Helper arrays ------------------------------------------- */
-function eligibleForOdds(){
-    const a=[];
-    if(passBet && passBet.odds===0 && point!==null) a.push(passBet);
-    for(const c of comeBets) if(c.point!==null && c.odds===0) a.push(c);
-    return a;
-}
-
-/* ---------- Place bets ---------------------------------------------- */
-function newPass(){
-    bankroll-=baseBet;
-    passBet={type:"pass", point:null, flat:baseBet, odds:0};
-    log(`Placed PASS ${money(baseBet)}`);
-    stateLine(); updateUI();
-}
-function newCome(){
-    bankroll-=baseBet;
-    comeBets.push({type:"come", point:null, flat:baseBet, odds:0});
-    comeWaiting=true;
-    log(`Placed COME ${money(baseBet)} (waiting)`);
-    stateLine(); updateUI();
-}
-function takeOdds(){
-    const tgt=eligibleForOdds(); if(!tgt.length) return;
-    let spent=0;
-    for(const b of tgt){
-        const o=Math.min(maxOdds*b.flat, bankroll-spent);
-        if(o>0){ b.odds=o; spent+=o; }
-    }
-    bankroll-=spent;
-    log(`Placed odds ${money(spent)} on ${tgt.length} bet(s)`);
-    stateLine(); updateUI();
-}
-
-/* ---------- Win / loss marking -------------------------------------- */
+/* ---------- bookkeeping helpers ------------------------------------ */
 function markWin(b,n){
     const flat=b.flat, odds=b.odds?b.odds*oddsRate(n):0;
     bankroll+=flat+odds+b.flat+b.odds;
@@ -198,91 +156,85 @@ function markLoss(b,why){
     b.delta=-(b.flat+b.odds); b.result="lose";
     log(`${why}: ${b.type==="pass"?"PASS":"COME"+(b.point!==null?" on "+b.point:"")} loses ${money(b.flat+b.odds)}`);
 }
-
-/* ---------- Purge resolved after colour flash ----------------------- */
 function purgeResolved(){
     if(passBet && passBet.result) passBet=null;
     comeBets=comeBets.filter(c=>!c.result);
 }
+function endGame(){gamesCompleted++;log(`Game #${gamesCompleted} completed.`);}
 
-/* ---------- Game counter -------------------------------------------- */
-function endOfGame(){
-    gamesCompleted++;
-    log(`Game #${gamesCompleted} completed.`);
+/* ---------- betting actions ---------------------------------------- */
+function newPass(){ bankroll-=baseBet; passBet={type:"pass",point:null,flat:baseBet,odds:0}; log(`Placed PASS ${money(baseBet)}`); stateLine(); updateUI();}
+function newCome(){ bankroll-=baseBet; comeBets.push({type:"come",point:null,flat:baseBet,odds:0}); comeWaiting=true; log(`Placed COME ${money(baseBet)} (waiting)`); stateLine(); updateUI();}
+function takeOdds(){
+    const tgt=eligibleForOdds(); if(!tgt.length)return;
+    let spent=0;
+    for(const b of tgt){ const o=Math.min(maxOdds*b.flat, bankroll-spent); if(o>0){b.odds=o; spent+=o;} }
+    bankroll-=spent; log(`Placed odds ${money(spent)} on ${tgt.length} bet(s)`); stateLine(); updateUI();
 }
 
-/* ---------- Roll dice ------------------------------------------------ */
+/* ---------- roll dice ---------------------------------------------- */
 function rollDice(){
-    purgeResolved(); updateUI();   // clear last roll’s coloured rows
+    purgeResolved(); updateUI();          // clear old coloured rows
 
-    /* summary line */
+    /* summary */
     const s=[]; if(passBet)s.push(`Pass-${passBet.point??"null"}:$${passBet.flat}${passBet.odds?`+${passBet.odds}`:""}`);
     for(const c of comeBets)s.push(`Come-${c.point??"?"}:$${c.flat}${c.odds?`+${c.odds}`:""}`);
     log(`Bets: ${s.join(" | ")||"none"}`);
 
-    /* dice */
-    const d1=Math.floor(Math.random()*6)+1,
-          d2=Math.floor(Math.random()*6)+1,
-          sum=d1+d2;
+    /* dice roll */
+    const d1=Math.floor(Math.random()*6)+1,d2=Math.floor(Math.random()*6)+1,sum=d1+d2;
     $("diceFace").textContent=dieCh[d1-1]+dieCh[d2-1];
     log(`Roll: ${d1}+${d2} = ${sum}`);
 
-    const comingOut = (point===null);
+    const comingOut=(point===null);
 
-    /* ---------- PASS line ------------------------------------------ */
+    /* pass line */
     if(comingOut){
-        if([7,11].includes(sum)){ if(passBet) markWin(passBet,sum); endOfGame(); }
-        else if([2,3,12].includes(sum)){ if(passBet) markLoss(passBet,"Craps"); endOfGame(); }
-        else{ point=sum; if(passBet) passBet.point=point; log(`Point set to ${point}`); }
+        if([7,11].includes(sum)){ if(passBet) markWin(passBet,sum); endGame();}
+        else if([2,3,12].includes(sum)){ if(passBet) markLoss(passBet,"Craps"); endGame();}
+        else { point=sum; if(passBet) passBet.point=point; log(`Point set to ${point}`);}
     }else{
-        if(sum===point){ if(passBet) markWin(passBet,sum); point=null; endOfGame(); }
+        if(sum===point){ if(passBet) markWin(passBet,sum); point=null; endGame();}
         else if(sum===7){
             if(passBet) markLoss(passBet,"Seven-out");
             for(const c of comeBets.filter(c=>c.point!==null)) markLoss(c,"Seven-out");
-            point=null; endOfGame();
+            point=null; endGame();
         }
     }
 
-    /* ---------- COME bets ------------------------------------------ */
+    /* come bets */
     for(const c of comeBets){
         if(c.result) continue;
         if(c.point===null){
             if([7,11].includes(sum)) markWin(c,sum);
             else if([2,3,12].includes(sum)) markLoss(c,"COME craps");
-            else{ c.point=sum; log(`COME travels to ${sum}`); }
+            else { c.point=sum; log(`COME travels to ${sum}`);}
         }else{
             if(sum===c.point) markWin(c,sum);
-            else if(sum===7)   markLoss(c,"Seven-out");
+            else if(sum===7 && point!==null) markLoss(c,"Seven-out"); // lose only when point on
+            /* if puck OFF & 7, established come bets ignored */
         }
     }
 
-    renderBetsList();          // flash colours
-    purgeResolved();           // drop resolved bets for totals
-    comeWaiting=false;         // clear flag BEFORE UI calc
-    stateLine();
-    updateUI(false);           // numbers only; list stays coloured
+    renderBets(); purgeResolved(); comeWaiting=false;
+    stateLine(); updateUI(false);
 }
 
-/* ---------- Event wiring -------------------------------------------- */
-$("btnPass").onclick = newPass;
-$("btnCome").onclick = newCome;
-$("btnOdds").onclick = takeOdds;
-$("btnRoll").onclick = rollDice;
+/* ---------- event wiring ------------------------------------------- */
+$("btnPass").onclick=newPass; $("btnCome").onclick=newCome;
+$("btnOdds").onclick=takeOdds; $("btnRoll").onclick=rollDice;
 
 $("btnBankroll").onclick=()=>{
-    const v=parseFloat(prompt("New bankroll:", bankroll));
-    if(!isNaN(v)&&v>=0){ bankroll=v; log(`Bankroll set to ${money(v)}`); stateLine(); updateUI(); }
+    const v=parseFloat(prompt("New bankroll:",bankroll)); if(!isNaN(v)&&v>=0){bankroll=v; log(`Bankroll set to ${money(v)}`); stateLine(); updateUI();}
 };
 $("btnBetSize").onclick=()=>{
-    const v=parseFloat(prompt("New base bet:", baseBet));
-    if(!isNaN(v)&&v>0){ baseBet=v; log(`Base bet set to ${money(v)}`); stateLine(); updateUI(); }
+    const v=parseFloat(prompt("New base bet:",baseBet)); if(!isNaN(v)&&v>0){baseBet=v; log(`Base bet set to ${money(v)}`); stateLine(); updateUI();}
 };
 $("btnOddsMax").onclick=()=>{
-    const v=parseInt(prompt("Max odds multiple:", maxOdds),10);
-    if(!isNaN(v)&&v>0){ maxOdds=v; log(`Max odds set to ${v}×`); stateLine(); updateUI(); }
+    const v=parseInt(prompt("Max odds multiple:",maxOdds),10); if(!isNaN(v)&&v>0){maxOdds=v; log(`Max odds set to ${v}×`); stateLine(); updateUI();}
 };
 
-/* ---------- Init ---------------------------------------------------- */
+/* ---------- init ---------------------------------------------------- */
 log("Welcome! Bankroll $100. Base bet $1. Max odds 10×.");
 stateLine(); updateUI();
 </script>
