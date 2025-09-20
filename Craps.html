@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Craps: Pass, Come, & Odds (10x default)</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #151a2b;
+    --accent: #57d5a0;
+    --muted: #a8b3c7;
+    --danger: #ff6b6b;
+    --win: #7fffd4;
+    --lose: #ffb3b3;
+    --warn: #ffd166;
+    --text: #e7ecf6;
+    --chip: #2e3653;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    color: var(--text);
+    background: radial-gradient(1200px 800px at 20% -10%, #1e2644 0%, var(--bg) 50%);
+  }
+  header {
+    padding: 16px 20px;
+    background: linear-gradient(180deg, #151a2b 0%, #101629 100%);
+    border-bottom: 1px solid #243059;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 18px;
+    letter-spacing: .4px;
+  }
+  header .sub {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .wrap {
+    display: grid;
+    grid-template-columns: 340px 1fr 360px;
+    gap: 16px;
+    padding: 16px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid #243059;
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  .card h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: var(--accent);
+    letter-spacing: .3px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row + .row { margin-top: 10px; }
+  .pill {
+    background: #1a2140;
+    border: 1px solid #2b386a;
+    padding: 8px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .btn {
+    background: #223061;
+    border: 1px solid #32447d;
+    color: #e7ecf6;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition: transform .02s ease, background .2s ease;
+  }
+  .btn:hover { background: #2a3970; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: #1f7a5d;
+    border-color: #1a6a51;
+  }
+  .btn.danger {
+    background: #7a1f1f;
+    border-color: #6a1a1a;
+  }
+  .btn.ghost {
+    background: transparent;
+    border-color: #3b4b88;
+  }
+  .stat {
+    background: #0f1530;
+    border: 1px dashed #2c3b74;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .big {
+    font-size: 18px;
+    font-weight: 800;
+    color: #ffffff;
+  }
+  .table {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .box {
+    background: #111736;
+    border: 1px solid #253264;
+    border-radius: 10px;
+    padding: 10px;
+    min-height: 84px;
+    position: relative;
+  }
+  .box h3 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .chip {
+    display: inline-block;
+    background: var(--chip);
+    border: 1px solid #4a5b9d;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 12px;
+    margin: 2px 4px 0 0;
+  }
+  .chip.win { border-color: var(--win); color: var(--win); }
+  .chip.lose { border-color: var(--lose); color: var(--lose); }
+  .chip.odds { border-color: #79a8ff; color: #cfe2ff; }
+  .muted { color: var(--muted); }
+  #log {
+    height: 360px;
+    overflow: auto;
+    background: #0d122a;
+    border: 1px solid #22306b;
+    border-radius: 8px;
+    padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+  .flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .help {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .toggle {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    background: #141b3c;
+    border: 1px solid #2b386a;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  input[type="checkbox"] { transform: scale(1.1); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  select, input[type="number"] {
+    background: #0f1530;
+    border: 1px solid #31407d;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .number-badge {
+    font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #22306b; color: #cfe2ff;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎲 Craps — Pass / Come / Odds</h1>
+  <div class="sub">Single-page simulator. Defaults: Bankroll $100, Base Bet $1, Max Odds 10×. Only Pass, Come & Odds are supported.</div>
+</header>
+
+<div class="wrap">
+
+  <!-- LEFT: Controls -->
+  <section class="card">
+    <h2>Controls</h2>
+    <div class="row">
+      <div class="stat">Bankroll: <span id="bankroll" class="big">$100</span></div>
+      <button class="btn ghost" id="btnSetBank">Set Bankroll…</button>
+    </div>
+    <div class="row">
+      <div class="stat">Base Bet: <span id="basebet" class="big">$1</span></div>
+      <button class="btn ghost" id="btnSetBase">Set Base Bet…</button>
+    </div>
+    <div class="row">
+      <div class="stat">Max Odds: <span id="oddsRule" class="big">10×</span></div>
+      <select id="oddsSelect" title="Table Odds Maximum">
+        <option value="1x">1×</option>
+        <option value="2x">2×</option>
+        <option value="3x">3×</option>
+        <option value="5x">5×</option>
+        <option value="10x" selected>10×</option>
+        <option value="345x">3-4-5× (by point)</option>
+      </select>
+    </div>
+    <div class="row">
+      <label class="toggle" title="When ON: come odds do not work on a new come-out roll (standard default).">
+        <input type="checkbox" id="oddsOffOnComeOut" checked />
+        <span>Odds OFF on Come-Out</span>
+      </label>
+    </div>
+
+    <hr style="border-color:#243059; opacity:.4; margin:12px 0" />
+
+    <h2>Bet / Roll</h2>
+    <div class="grid2">
+      <button class="btn primary" id="btnPass">Bet PASS ($)</button>
+      <button class="btn primary" id="btnCome">Bet COME ($)</button>
+
+      <button class="btn" id="btnMaxOdds">Max Odds (All)</button>
+      <button class="btn ghost" id="btnClearOdds">Remove Odds (All)</button>
+
+      <button class="btn" id="btnCancelBets">Cancel Unset Bets</button>
+      <button class="btn danger" id="btnReset">Reset Game</button>
+
+      <button class="btn" id="btnRoll" style="grid-column: 1 / -1; font-size:18px; padding:14px;">🎲 ROLL</button>
+    </div>
+
+    <p class="help" style="margin-top:10px">
+      <strong>Notes</strong><br>
+      • PASS allowed only on a come-out roll.<br>
+      • COME allowed anytime; moves to the number on next non-craps/7 roll.<br>
+      • Odds use the selected table maximum (or 3-4-5× by point).<br>
+      • On a new come-out: PASS resolves; existing COME <em>flat</em> bets remain ON; COME odds follow the toggle above (default OFF).<br>
+      • Only Pass, Come, and Odds are implemented (no place/buy/lay/hardways/etc.).
+    </p>
+  </section>
+
+  <!-- CENTER: Table -->
+  <section class="card">
+    <h2>Table</h2>
+
+    <div class="row">
+      <div class="pill">Shooter State: <span id="state" class="number-badge">Come-Out</span></div>
+      <div class="pill">Point: <span id="point" class="number-badge">—</span></div>
+      <div class="pill">Dice: <span id="dice" class="number-badge">—</span></div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div class="box" style="flex:1">
+        <h3>PASS LINE
+          <span id="passLineAmt" class="chip">$0</span>
+        </h3>
+        <div class="muted" id="passLineDetail">Bet on come-out only. Wins 7/11, loses 2/3/12. Sets the Point on 4/5/6/8/9/10.</div>
+        <div id="passOddsRow" class="muted" style="margin-top:6px; display:none;">
+          <span class="chip odds" id="passOddsChip">Odds: $0</span>
+        </div>
+      </div>
+      <div class="box" style="flex:1">
+        <h3>COME
+          <span id="comeAmtWaiting" class="chip">$0</span>
+        </h3>
+        <div class="muted" id="comeDetail">Bet moves to the number that rolls next (except 2/3/12/7/11 resolve immediately).</div>
+      </div>
+    </div>
+
+    <div class="table">
+      <div class="box" data-n="4">
+        <h3><span>4</span><span class="chip" id="flat-4">$0</span></h3>
+        <div><span class="chip odds" id="odds-4">Odds: $0</span></div>
+      </div>
+      <div class="box" data-n="5">
+        <h3><span>5</span><span class="chip" id="flat-5">$0</span></h3>
+        <div><span class="chip odds" id="odds-5">Odds: $0</span></div>
+      </div>
+      <div class="box" data-n="6">
+        <h3><span>6</span><span class="chip" id="flat-6">$0</span></h3>
+        <div><span class="chip odds" id="odds-6">Odds: $0</span></div>
+      </div>
+      <div class="box" data-n="8">
+        <h3><span>8</span><span class="chip" id="flat-8">$0</span></h3>
+        <div><span class="chip odds" id="odds-8">Odds: $0</span></div>
+      </div>
+      <div class="box" data-n="9">
+        <h3><span>9</span><span class="chip" id="flat-9">$0</span></h3>
+        <div><span class="chip odds" id="odds-9">Odds: $0</span></div>
+      </div>
+      <div class="box" data-n="10">
+        <h3><span>10</span><span class="chip" id="flat-10">$0</span></h3>
+        <div><span class="chip odds" id="odds-10">Odds: $0</span></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- RIGHT: Log -->
+  <section class="card">
+    <h2>Actions & Results</h2>
+    <div id="log" aria-live="polite"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  // --------- Utilities ---------
+  const $ = sel => document.querySelector(sel);
+  const fmt = v => "$" + v.toFixed(2).replace(/\.00$/,'');
+  const now = () => new Date().toLocaleTimeString();
+
+  function log(msg, cls="") {
+    const box = $("#log");
+    const line = `[${now()}] ${msg}`;
+    const span = document.createElement("div");
+    span.textContent = line;
+    if (cls) span.className = cls;
+    box.appendChild(span);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function randDie(){ return Math.floor(Math.random()*6)+1; }
+
+  // --------- Game State ---------
+  const state = {
+    bankroll: 100,
+    baseBet: 1,
+    phase: "comeout", // "comeout" | "point"
+    point: null,      // 4,5,6,8,9,10 or null
+    pass: 0,          // pass line flat
+    passOdds: 0,      // odds on pass when point is on
+    comeWaiting: 0,   // come bet in the "COME" area waiting to travel
+    comes: {          // number: { flat, odds }
+      4:{flat:0,odds:0}, 5:{flat:0,odds:0}, 6:{flat:0,odds:0},
+      8:{flat:0,odds:0}, 9:{flat:0,odds:0}, 10:{flat:0,odds:0}
+    },
+    oddsRule: "10x",  // "1x","2x","3x","5x","10x","345x"
+    oddsOffOnComeOut: true
+  };
+
+  // --------- Payout helpers ---------
+  function oddsCapFor(point, flat) {
+    const r = state.oddsRule;
+    if (r === "345x") {
+      // 3-4-5x depends on point
+      const mult = (point===6||point===8) ? 5 : (point===5||point===9) ? 4 : 3;
+      return flat * mult;
+    }
+    // generic Nx (string like "10x")
+    const m = parseInt(r);
+    return flat * m;
+  }
+
+  function oddsPayFor(point, oddsAmt) {
+    // True odds: 4/10 pay 2:1 ; 5/9 pay 3:2 ; 6/8 pay 6:5
+    if (!oddsAmt) return 0;
+    if (point===4 || point===10) return oddsAmt * 2;
+    if (point===5 || point===9)  return oddsAmt * 1.5;
+    if (point===6 || point===8)  return oddsAmt * 1.2;
+    return 0;
+  }
+
+  // Round odds to nearest cent (we're in $)
+  function clampToCap(desired, cap) { return Math.min(desired, cap); }
+
+  // --------- UI sync ---------
+  function syncUI() {
+    $("#bankroll").textContent = fmt(state.bankroll);
+    $("#basebet").textContent = fmt(state.baseBet);
+    $("#oddsRule").textContent = state.oddsRule === "345x" ? "3-4-5×" : state.oddsRule.toUpperCase();
+    $("#oddsSelect").value = state.oddsRule;
+    $("#oddsOffOnComeOut").checked = state.oddsOffOnComeOut;
+    $("#state").textContent = state.phase === "comeout" ? "Come-Out" : "Point";
+    $("#point").textContent = state.point ? state.point : "—";
+
+    $("#passLineAmt").textContent = fmt(state.pass);
+    $("#passOddsRow").style.display = state.passOdds > 0 ? "" : "none";
+    $("#passOddsChip").textContent = "Odds: " + fmt(state.passOdds);
+
+    $("#comeAmtWaiting").textContent = fmt(state.comeWaiting);
+
+    [4,5,6,8,9,10].forEach(n=>{
+      $("#flat-"+n).textContent = fmt(state.comes[n].flat);
+      $("#odds-"+n).textContent = "Odds: " + fmt(state.comes[n].odds);
+    });
+  }
+
+  function canAfford(amt) { return state.bankroll >= amt - 1e-9; }
+  function debit(amt) { state.bankroll -= amt; }
+  function credit(amt) { state.bankroll += amt; }
+
+  // --------- Actions ---------
+  function setBankroll() {
+    const v = prompt("Set bankroll to ($):", state.bankroll);
+    if (v===null) return;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) { alert("Invalid amount."); return; }
+    state.bankroll = n;
+    log(`Bankroll set to ${fmt(n)}.`);
+    syncUI();
+  }
+
+  function setBaseBet() {
+    const v = prompt("Set base bet ($) for PASS & COME:", state.baseBet);
+    if (v===null) return;
+    const n = Math.max(0, Number(v));
+    if (!Number.isFinite(n) || n <= 0) { alert("Invalid base bet."); return; }
+    state.baseBet = n;
+    log(`Base bet set to ${fmt(n)}.`);
+    syncUI();
+  }
+
+  function changeOddsRule(e) {
+    state.oddsRule = e.target.value;
+    log(`Max Odds rule set to: ${state.oddsRule === "345x" ? "3-4-5× by point" : state.oddsRule}.`);
+    syncUI();
+  }
+
+  function toggleOddsOffOnComeOut(e) {
+    state.oddsOffOnComeOut = e.target.checked;
+    log(`Odds on come-out are now ${state.oddsOffOnComeOut ? "OFF (suspended)" : "ON (working)"}.`);
+  }
+
+  function betPass() {
+    if (state.phase !== "comeout") { log("PASS can only be bet on a come-out roll.", "warn"); return; }
+    const amt = state.baseBet;
+    if (!canAfford(amt)) { log("Insufficient bankroll for PASS.", "warn"); return; }
+    state.pass += amt;
+    debit(amt);
+    log(`Bet PASS ${fmt(amt)}. (Total on PASS: ${fmt(state.pass)})`);
+    syncUI();
+  }
+
+  function betCome() {
+    const amt = state.baseBet;
+    if (!canAfford(amt)) { log("Insufficient bankroll for COME.", "warn"); return; }
+    state.comeWaiting += amt;
+    debit(amt);
+    log(`Bet COME ${fmt(amt)}. (Waiting to travel)`);
+    syncUI();
+  }
+
+  function maxOddsAll() {
+    let spent = 0;
+
+    // Pass odds (only if there is a point and a pass flat bet)
+    if (state.phase === "point" && state.pass > 0) {
+      const cap = oddsCapFor(state.point, state.pass);
+      const need = Math.max(0, cap - state.passOdds);
+      const amt = Math.min(need, state.bankroll);
+      if (amt > 0) {
+        state.passOdds += amt;
+        debit(amt);
+        spent += amt;
+        log(`Took PASS odds ${fmt(amt)} (now ${fmt(state.passOdds)}; cap ${fmt(cap)}).`);
+      }
+    }
+
+    // Come odds on each number
+    [4,5,6,8,9,10].forEach(n=>{
+      const flat = state.comes[n].flat;
+      if (flat>0) {
+        const cap = oddsCapFor(n, flat);
+        const need = Math.max(0, cap - state.comes[n].odds);
+        const amt = Math.min(need, state.bankroll);
+        if (amt>0) {
+          state.comes[n].odds += amt;
+          debit(amt);
+          spent += amt;
+          log(`Took COME odds on ${n}: ${fmt(amt)} (now ${fmt(state.comes[n].odds)}; cap ${fmt(cap)}).`);
+        }
+      }
+    });
+
+    if (spent===0) log("No eligible bets to add odds (or no bankroll).", "warn");
+    syncUI();
+  }
+
+  function clearAllOdds() {
+    let returned = 0;
+
+    if (state.passOdds>0) {
+      returned += state.passOdds;
+      credit(state.passOdds);
+      log(`Removed PASS odds ${fmt(state.passOdds)}.`);
+      state.passOdds = 0;
+    }
+    [4,5,6,8,9,10].forEach(n=>{
+      if (state.comes[n].odds>0) {
+        returned += state.comes[n].odds;
+        credit(state.comes[n].odds);
+        log(`Removed COME odds on ${n} ${fmt(state.comes[n].odds)}.`);
+        state.comes[n].odds = 0;
+      }
+    });
+
+    if (returned===0) log("No odds to remove.", "warn");
+    syncUI();
+  }
+
+  function cancelUnsettled() {
+    // Return come bet waiting (center) before a roll
+    if (state.comeWaiting>0) {
+      credit(state.comeWaiting);
+      log(`Cancelled COME waiting bet ${fmt(state.comeWaiting)}.`);
+      state.comeWaiting = 0;
+      syncUI();
+    } else {
+      log("No un-set bets to cancel.", "warn");
+    }
+  }
+
+  function resetGame() {
+    if (!confirm("Reset game to defaults?")) return;
+    state.bankroll = 100;
+    state.baseBet = 1;
+    state.phase = "comeout";
+    state.point = null;
+    state.pass = 0;
+    state.passOdds = 0;
+    state.comeWaiting = 0;
+    state.oddsRule = "10x";
+    state.oddsOffOnComeOut = true;
+    [4,5,6,8,9,10].forEach(n=> state.comes[n]={flat:0,odds:0});
+    $("#dice").textContent = "—";
+    $("#log").textContent = "";
+    log("Game reset. Bankroll $100. Base bet $1. Max odds 10×. Odds OFF on come-out.");
+    syncUI();
+  }
+
+  // --------- Roll Resolution ---------
+  function rollDice() {
+    const d1 = randDie(), d2 = randDie(), sum = d1+d2;
+    $("#dice").textContent = `${d1} + ${d2} = ${sum}`;
+    log(`Rolled ${d1} + ${d2} = ${sum}.`);
+
+    if (state.phase === "comeout") resolveComeOut(sum);
+    else resolvePointRoll(sum);
+    syncUI();
+  }
+
+  function resolveComeOut(sum) {
+    if (sum===7 || sum===11) {
+      // PASS wins 1:1
+      if (state.pass>0) {
+        const win = state.pass;
+        credit(state.pass + win);
+        log(`PASS wins ${fmt(win)} on ${sum}. Paid ${fmt(state.pass + win)} total.`);
+        state.pass = 0;
+      } else {
+        log(`Natural ${sum}. (No PASS bet to pay.)`);
+      }
+
+      // Existing COME (on numbers): flat COME are working on come-out for this sim.
+      // A 7 on come-out wipes all existing come flats; odds OFF are returned, ON would also lose (but we honor suspension).
+      if (sum===7) {
+        [4,5,6,8,9,10].forEach(n=>{
+          const {flat, odds} = state.comes[n];
+          if (flat>0) {
+            // Flat loses
+            log(`COME on ${n} loses flat ${fmt(flat)} on come-out 7.`);
+            // Odds handling:
+            if (odds>0) {
+              if (state.oddsOffOnComeOut) {
+                // Return the suspended odds since flat is gone
+                credit(odds);
+                log(`COME odds on ${n} were OFF; returning ${fmt(odds)} to bankroll.`);
+              } else {
+                log(`COME odds on ${n} were ON; odds ${fmt(odds)} also lose.`);
+              }
+            }
+            // Clear both
+            state.comes[n].flat = 0;
+            state.comes[n].odds = 0;
+          }
+        });
+      }
+
+      // COME waiting resolves immediately on natural: wins 1:1
+      if (state.comeWaiting>0) {
+        const win = state.comeWaiting;
+        credit(state.comeWaiting + win);
+        log(`COME (waiting) wins ${fmt(win)} on ${sum}. Paid ${fmt(state.comeWaiting + win)} total.`);
+        state.comeWaiting = 0;
+      }
+
+      // Remain in come-out
+      return;
+    }
+
+    if (sum===2 || sum===3 || sum===12) {
+      // PASS loses
+      if (state.pass>0) {
+        log(`PASS loses ${fmt(state.pass)} on craps ${sum}.`);
+        state.pass = 0;
+      } else {
+        log(`Craps ${sum}. (No PASS to lose.)`);
+      }
+      // COME waiting: 2/3/12 lose
+      if (state.comeWaiting>0) {
+        log(`COME (waiting) loses ${fmt(state.comeWaiting)} on craps ${sum}.`);
+        state.comeWaiting = 0;
+      }
+      // Stay in come-out
+      return;
+    }
+
+    // Point is established: 4/5/6/8/9/10
+    state.point = sum;
+    state.phase = "point";
+    log(`Point is set to ${state.point}.`);
+
+    // COME waiting neither wins nor loses; for the *next* roll it can travel
+  }
+
+  function resolvePointRoll(sum) {
+    // First handle COME waiting
+    if (state.comeWaiting>0) {
+      if (sum===7) {
+        // COME waiting loses on 7
+        log(`COME (waiting) loses ${fmt(state.comeWaiting)} on 7.`);
+        state.comeWaiting = 0;
+      } else if (sum===11) {
+        // COME waiting wins 1:1
+        const win = state.comeWaiting;
+        credit(state.comeWaiting + win);
+        log(`COME (waiting) wins ${fmt(win)} on 11. Paid ${fmt(state.comeWaiting + win)} total.`);
+        state.comeWaiting = 0;
+      } else if (sum===2 || sum===3 || sum===12) {
+        log(`COME (waiting) loses ${fmt(state.comeWaiting)} on craps ${sum}.`);
+        state.comeWaiting = 0;
+      } else {
+        // Travel to number
+        const n = sum;
+        state.comes[n].flat += state.comeWaiting;
+        log(`COME ${fmt(state.comeWaiting)} travels to ${n}. (Flat on ${n}: ${fmt(state.comes[n].flat)})`);
+        state.comeWaiting = 0;
+      }
+    }
+
+    // Seven-out?
+    if (sum===7) {
+      // All come flats & odds lose
+      let lost = 0;
+      [4,5,6,8,9,10].forEach(n=>{
+        if (state.comes[n].flat>0) {
+          lost += state.comes[n].flat;
+          if (state.comes[n].odds>0) lost += state.comes[n].odds;
+          log(`Seven-out: COME on ${n} loses flat ${fmt(state.comes[n].flat)}${state.comes[n].odds?` and odds ${fmt(state.comes[n].odds)}`:""}.`);
+          state.comes[n].flat = 0;
+          state.comes[n].odds = 0;
+        }
+      });
+      // Pass loses (flat and odds)
+      if (state.pass>0 || state.passOdds>0) {
+        log(`Seven-out: PASS loses ${fmt(state.pass)}${state.passOdds?` and odds ${fmt(state.passOdds)}`:""}.`);
+      }
+      state.pass = 0;
+      state.passOdds = 0;
+
+      // Back to come-out
+      state.phase = "comeout";
+      state.point = null;
+      return;
+    }
+
+    // Point made?
+    if (sum===state.point) {
+      // Pay PASS flat 1:1 and odds by point
+      const base = state.pass;
+      const odds = state.passOdds;
+      const payFlat = base; // 1:1
+      const payOdds = oddsPayFor(state.point, odds);
+      if (base>0) {
+        credit(base + payFlat);
+        log(`POINT ${state.point} made! PASS paid flat ${fmt(payFlat)} (returned ${fmt(base+payFlat)}).`);
+      }
+      if (odds>0) {
+        credit(odds + payOdds);
+        log(`PASS odds paid ${fmt(payOdds)} (returned ${fmt(odds+payOdds)}).`);
+      }
+      state.pass = 0;
+      state.passOdds = 0;
+
+      // COME bets on that number also get paid (flat + odds)
+      const c = state.comes[sum];
+      if (c.flat>0) {
+        const flatPay = c.flat; // 1:1 on come flat
+        const oddsPay = oddsPayFor(sum, c.odds);
+        credit(c.flat + flatPay);
+        log(`COME on ${sum} paid flat ${fmt(flatPay)} (returned ${fmt(c.flat+flatPay)}).`);
+        if (c.odds>0) {
+          credit(c.odds + oddsPay);
+          log(`COME odds on ${sum} paid ${fmt(oddsPay)} (returned ${fmt(c.odds+oddsPay)}).`);
+        }
+        // Removed after pay
+        state.comes[sum] = {flat:0,odds:0};
+      }
+
+      // Back to come-out
+      state.phase = "comeout";
+      state.point = null;
+      return;
+    }
+
+    // Hit a box number that is NOT the point: resolve COME on that number
+    if ([4,5,6,8,9,10].includes(sum)) {
+      const c = state.comes[sum];
+      if (c.flat>0) {
+        const flatPay = c.flat; // 1:1
+        const oddsPay = oddsPayFor(sum, c.odds);
+        credit(c.flat + flatPay);
+        log(`COME on ${sum} hit! Paid flat ${fmt(flatPay)} (returned ${fmt(c.flat+flatPay)}).`);
+        if (c.odds>0) {
+          credit(c.odds + oddsPay);
+          log(`COME odds on ${sum} paid ${fmt(oddsPay)} (returned ${fmt(c.odds+oddsPay)}).`);
+        }
+        state.comes[sum] = {flat:0,odds:0};
+      } else {
+        // Nothing there; just a field hit for other bets we don't have.
+      }
+    }
+  }
+
+  // --------- Wire up ---------
+  $("#btnSetBank").addEventListener("click", setBankroll);
+  $("#btnSetBase").addEventListener("click", setBaseBet);
+  $("#oddsSelect").addEventListener("change", changeOddsRule);
+  $("#oddsOffOnComeOut").addEventListener("change", toggleOddsOffOnComeOut);
+
+  $("#btnPass").addEventListener("click", betPass);
+  $("#btnCome").addEventListener("click", betCome);
+
+  $("#btnMaxOdds").addEventListener("click", maxOddsAll);
+  $("#btnClearOdds").addEventListener("click", clearAllOdds);
+
+  $("#btnCancelBets").addEventListener("click", cancelUnsettled);
+  $("#btnReset").addEventListener("click", resetGame);
+
+  $("#btnRoll").addEventListener("click", rollDice);
+
+  // Initialize
+  log("Welcome! Bankroll $100. Base bet $1. Max odds 10× (changeable). Odds OFF on come-out (toggle above).");
+  syncUI();
+
+})();
+</script>
+</body>
+</html>
