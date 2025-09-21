@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dice Site-Reading Trainer</title>
+<style>
+  :root{
+    --pad: clamp(8px, 2vw, 16px);
+    --btn-size: clamp(56px, 8vw, 92px);
+    --die-size: clamp(72px, 12vw, 140px);
+    --accent:#1f6feb;
+    --good:#17a34a;
+    --bad:#d14343;
+    --muted:#666;
+    --border:#d0d7de;
+    --bg:#f6f8fa;
+  }
+  * { box-sizing: border-box; }
+  body{
+    margin:0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    background: var(--bg);
+    color:#111;
+    display:flex;
+    min-height:100svh;
+  }
+  .wrap{
+    margin:auto;
+    width:min(960px, 100%);
+    padding: calc(var(--pad)*2) var(--pad);
+    display:grid;
+    gap: calc(var(--pad)*1.25);
+  }
+  .dice-area{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap: clamp(12px, 3vw, 28px);
+    padding: calc(var(--pad)*1.5);
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    background: #fff;
+    min-height: calc(var(--die-size) * 1.5);
+  }
+  .die{
+    font-size: var(--die-size);
+    line-height: 1;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,.08));
+    user-select:none;
+  }
+  .die.empty{
+    color: var(--muted);
+    opacity:.4;
+  }
+  .pad{
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--pad);
+  }
+  .pad button{
+    font-size: clamp(18px, 3.2vw, 28px);
+    font-weight: 650;
+    padding: 0;
+    height: var(--btn-size);
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+    transition: transform .03s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .pad button:active{ transform: translateY(1px); }
+  .pad button:disabled{
+    cursor:not-allowed;
+    opacity:.55;
+  }
+  /* flash borders */
+  .flash-green{ animation: flashG .45s ease; }
+  .flash-red{   animation: flashR .45s ease; }
+  @keyframes flashG{
+    0%{ box-shadow: 0 0 0 0 var(--good); border-color: var(--good); }
+    100%{ box-shadow: 0 0 0 6px rgba(23,163,74,0); border-color: var(--border); }
+  }
+  @keyframes flashR{
+    0%{ box-shadow: 0 0 0 0 var(--bad); border-color: var(--bad); }
+    100%{ box-shadow: 0 0 0 6px rgba(209,67,67,0); border-color: var(--border); }
+  }
+
+  .controls{
+    display:flex;
+    justify-content:center;
+  }
+  .controls button{
+    font-size: clamp(16px, 2.8vw, 22px);
+    padding: .75em 1.25em;
+    border-radius: 12px;
+    border: 2px solid var(--accent);
+    background: #fff;
+    color: #0b3d91;
+    font-weight: 650;
+    cursor: pointer;
+    min-width: 9ch;
+  }
+  .controls button.running{
+    background: var(--accent);
+    color:#fff;
+  }
+
+  .stats{
+    display:grid;
+    gap: .35rem;
+    justify-items:center;
+    text-align:center;
+    color:#111;
+  }
+  .stats .row{
+    display:flex;
+    flex-wrap:wrap;
+    gap: .75rem 1.25rem;
+    justify-content:center;
+  }
+  .stat{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:.5rem .75rem;
+    min-width: 13ch;
+  }
+  .stat .label{
+    display:block;
+    font-size:.8rem;
+    color: var(--muted);
+    letter-spacing:.02em;
+  }
+  .stat .value{
+    font-variant-numeric: tabular-nums;
+    font-weight:700;
+    font-size: clamp(18px, 2.6vw, 24px);
+  }
+
+  /* center the last row (11,12) nicely in the 3-col grid */
+  .pad .spacer{ visibility:hidden; }
+  @media (hover:hover){
+    .pad button:hover{ border-color:#98a6b3; }
+  }
+</style>
+</head>
+<body>
+  <main class="wrap" aria-live="polite">
+    <section class="dice-area" id="diceArea" aria-label="Dice">
+      <span class="die empty" id="die1" aria-hidden="true">🎲</span>
+      <span class="die empty" id="die2" aria-hidden="true">🎲</span>
+    </section>
+
+    <section class="pad" id="keypad" aria-label="Sum keypad">
+      <!-- Row 1 -->
+      <button data-val="2">2</button>
+      <button data-val="3">3</button>
+      <button data-val="4">4</button>
+      <!-- Row 2 -->
+      <button data-val="5">5</button>
+      <button data-val="6">6</button>
+      <button data-val="7">7</button>
+      <!-- Row 3 -->
+      <button data-val="8">8</button>
+      <button data-val="9">9</button>
+      <button data-val="10">10</button>
+      <!-- Row 4 (center 11,12) -->
+      <span class="spacer" aria-hidden="true"></span>
+      <button data-val="11">11</button>
+      <button data-val="12">12</button>
+    </section>
+
+    <section class="controls">
+      <button id="toggleBtn" type="button" aria-label="Start game">Start</button>
+    </section>
+
+    <section class="stats" aria-label="Statistics & status">
+      <div class="row" id="statusRow" style="color: var(--muted)">Tap “Start” to begin.</div>
+      <div class="row">
+        <div class="stat"><span class="label">Rolls</span><span class="value" id="rollsVal">0</span></div>
+        <div class="stat"><span class="label">Average</span><span class="value" id="avgVal">—</span></div>
+        <div class="stat"><span class="label">Quickest</span><span class="value" id="minVal">—</span></div>
+        <div class="stat"><span class="label">Slowest</span><span class="value" id="maxVal">—</span></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+(() => {
+  // Unicode die faces U+2680..U+2685 (⚀..⚅)
+  const DIE_FACES = ["\u2680","\u2681","\u2682","\u2683","\u2684","\u2685"];
+
+  const die1El = document.getElementById('die1');
+  const die2El = document.getElementById('die2');
+  const keypad  = document.getElementById('keypad');
+  const toggleBtn = document.getElementById('toggleBtn');
+
+  const rollsVal = document.getElementById('rollsVal');
+  const avgVal = document.getElementById('avgVal');
+  const minVal = document.getElementById('minVal');
+  const maxVal = document.getElementById('maxVal');
+  const statusRow = document.getElementById('statusRow');
+
+  let running = false;     // true when a roll is active (awaiting correct answer)
+  let paused  = true;      // overall game paused/not-started
+  let currentSum = null;   // target sum for current roll
+  let startTime = null;    // performance.now() when dice shown
+  let times = [];          // list of seconds for correct answers
+  let rerollTO = null;     // timeout handle for auto re-roll
+  let acceptingAnswers = false; // lock keypad during green-flash wait
+
+  // Helpers
+  const fmt = s => (s === null || Number.isNaN(s)) ? '—' : s.toFixed(2) + ' s';
+
+  function clearRerollTimeout(){
+    if (rerollTO) { clearTimeout(rerollTO); rerollTO = null; }
+  }
+
+  function setDice(empty=false){
+    if (empty){
+      die1El.textContent = "🎲";
+      die2El.textContent = "🎲";
+      die1El.classList.add('empty');
+      die2El.classList.add('empty');
+      currentSum = null;
+      return;
+    }
+    die1El.classList.remove('empty');
+    die2El.classList.remove('empty');
+
+    const d1 = 1 + Math.floor(Math.random()*6);
+    const d2 = 1 + Math.floor(Math.random()*6);
+    die1El.textContent = DIE_FACES[d1-1];
+    die2El.textContent = DIE_FACES[d2-1];
+    currentSum = d1 + d2;
+  }
+
+  function enableKeypad(enable){
+    [...keypad.querySelectorAll('button')].forEach(b => b.disabled = !enable);
+  }
+
+  function updateStats(){
+    const n = times.length;
+    rollsVal.textContent = n.toString();
+    if (n === 0){
+      avgVal.textContent = '—';
+      minVal.textContent = '—';
+      maxVal.textContent = '—';
+      return;
+    }
+    const sum = times.reduce((a,b)=>a+b,0);
+    const avg = sum / n;
+    const min = Math.min(...times);
+    const max = Math.max(...times);
+    avgVal.textContent = fmt(avg);
+    minVal.textContent = fmt(min);
+    maxVal.textContent = fmt(max);
+  }
+
+  function startTimer(){
+    startTime = performance.now();
+  }
+
+  function stopTimer(){
+    if (startTime === null) return null;
+    const t = (performance.now() - startTime) / 1000;
+    startTime = null;
+    return t;
+  }
+
+  function rollDice(){
+    setDice(false);
+    running = true;
+    acceptingAnswers = true;
+    enableKeypad(true);
+    startTimer();
+    statusRow.textContent = "Pick the sum.";
+    toggleBtn.textContent = "Pause";
+    toggleBtn.classList.add('running');
+    paused = false;
+  }
+
+  function pauseGame(){
+    paused = true;
+    running = false;
+    acceptingAnswers = false;
+    clearRerollTimeout();
+    startTime = null;
+    setDice(true);
+    enableKeypad(false);
+    toggleBtn.textContent = "Resume";
+    toggleBtn.classList.remove('running');
+    statusRow.textContent = "Paused.";
+  }
+
+  function resumeGame(){
+    rollDice();
+  }
+
+  // Handle keypad clicks
+  keypad.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-val]');
+    if (!btn) return;
+    if (!running || !acceptingAnswers) {
+      // brief red flash if they tap while locked/waiting
+      btn.classList.remove('flash-red'); void btn.offsetWidth; btn.classList.add('flash-red');
+      return;
+    }
+
+    const guess = Number(btn.dataset.val);
+    if (currentSum === null) return;
+
+    if (guess === currentSum){
+      const t = stopTimer();
+      if (t !== null) times.push(t);
+      updateStats();
+
+      // good flash, then schedule reroll in 2s
+      btn.classList.remove('flash-green'); void btn.offsetWidth; btn.classList.add('flash-green');
+
+      acceptingAnswers = false;      // lock until next roll
+      enableKeypad(false);
+      statusRow.textContent = "Correct! Rerolling…";
+
+      clearRerollTimeout();
+      rerollTO = setTimeout(() => {
+        if (paused) return;          // if user paused during wait, do nothing
+        rollDice();
+      }, 2000);
+    } else {
+      // wrong answer flash
+      btn.classList.remove('flash-red'); void btn.offsetWidth; btn.classList.add('flash-red');
+      statusRow.textContent = "Try again.";
+    }
+  });
+
+  // Start / Pause / Resume button
+  toggleBtn.addEventListener('click', () => {
+    if (paused){
+      // could be Start or Resume
+      resumeGame();
+    } else {
+      // currently running → pause
+      pauseGame();
+    }
+  });
+
+  // Initial state
+  setDice(true);
+  enableKeypad(false);
+})();
+</script>
+</body>
+</html>
