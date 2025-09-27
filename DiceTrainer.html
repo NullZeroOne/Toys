@@ -7,7 +7,6 @@
 <style>
   :root{
     --pad: clamp(8px, 2vw, 16px);
-    --btn-size: clamp(56px, 8vw, 92px);
     --die-size: clamp(72px, 12vw, 140px);
     --accent:#1f6feb;
     --good:#17a34a;
@@ -28,23 +27,23 @@
   .wrap{
     margin:auto;
     width:min(960px, 100%);
-    padding: calc(var(--pad)*2) var(--pad);
+    padding: calc(var(--pad)*1.5) var(--pad); /* ~25% less vertical padding */
     display:grid;
-    gap: calc(var(--pad)*1.25);
+    gap: calc(var(--pad)*0.9);
   }
   .dice-area{
     display:flex;
     justify-content:center;
     align-items:center;
-    gap: clamp(12px, 3vw, 28px);
-    padding: calc(var(--pad)*1.5);
+    gap: clamp(10px, 2.25vw, 21px); /* a bit tighter vertically */
+    padding: calc(var(--pad)*1.1);
     border: 2px dashed var(--border);
     border-radius: 12px;
     background: #fff;
-    min-height: calc(var(--die-size) * 1.5);
+    min-height: calc(var(--die-size) * 1.05); /* ~25% shorter than before */
   }
   .die{
-    font-size: var(--die-size);
+    font-size: calc(var(--die-size) * 0.75); /* 25% vertically shorter visual */
     line-height: 1;
     filter: drop-shadow(0 2px 2px rgba(0,0,0,.08));
     user-select:none;
@@ -53,21 +52,22 @@
     color: var(--muted);
     opacity:.4;
   }
+
   .pad{
     display:grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--pad);
+    gap: calc(var(--pad) * 0.8);
   }
   .pad button{
-    font-size: clamp(18px, 3.2vw, 28px);
+    font-size: clamp(16px, 2.6vw, 24px);
     font-weight: 650;
     padding: 0;
-    height: var(--btn-size);
     border-radius: 12px;
     border: 2px solid var(--border);
     background: #fff;
     cursor: pointer;
     transition: transform .03s ease, border-color .15s ease, box-shadow .15s ease;
+    aspect-ratio: 3 / 2;            /* 1.5× as wide as tall */
   }
   .pad button:active{ transform: translateY(1px); }
   .pad button:disabled{
@@ -91,8 +91,8 @@
     justify-content:center;
   }
   .controls button{
-    font-size: clamp(16px, 2.8vw, 22px);
-    padding: .75em 1.25em;
+    font-size: clamp(15px, 2.2vw, 20px);
+    padding: .55em 1.1em;           /* ~25% less vertical padding */
     border-radius: 12px;
     border: 2px solid var(--accent);
     background: #fff;
@@ -108,7 +108,7 @@
 
   .stats{
     display:grid;
-    gap: .35rem;
+    gap: .25rem;
     justify-items:center;
     text-align:center;
     color:#111;
@@ -116,30 +116,31 @@
   .stats .row{
     display:flex;
     flex-wrap:wrap;
-    gap: .75rem 1.25rem;
+    gap: .6rem 1rem;
     justify-content:center;
   }
   .stat{
     background:#fff;
     border:1px solid var(--border);
     border-radius:10px;
-    padding:.5rem .75rem;
+    padding:.4rem .65rem;
     min-width: 13ch;
   }
   .stat .label{
     display:block;
-    font-size:.8rem;
+    font-size:.78rem;
     color: var(--muted);
     letter-spacing:.02em;
   }
   .stat .value{
     font-variant-numeric: tabular-nums;
     font-weight:700;
-    font-size: clamp(18px, 2.6vw, 24px);
+    font-size: clamp(16px, 2.2vw, 22px);
   }
 
-  /* center the last row (11,12) nicely in the 3-col grid */
+  /* invisible spacer cells */
   .pad .spacer{ visibility:hidden; }
+
   @media (hover:hover){
     .pad button:hover{ border-color:#98a6b3; }
   }
@@ -152,21 +153,26 @@
       <span class="die empty" id="die2" aria-hidden="true">🎲</span>
     </section>
 
+    <!-- Phone keypad layout without '1':
+         Row 1: [spacer] [2] [3]
+         Row 2: [4] [5] [6]
+         Row 3: [7] [8] [9]
+         Row 4: [10] [11] [12] -->
     <section class="pad" id="keypad" aria-label="Sum keypad">
       <!-- Row 1 -->
+      <span class="spacer" aria-hidden="true"></span>
       <button data-val="2">2</button>
       <button data-val="3">3</button>
-      <button data-val="4">4</button>
       <!-- Row 2 -->
+      <button data-val="4">4</button>
       <button data-val="5">5</button>
       <button data-val="6">6</button>
-      <button data-val="7">7</button>
       <!-- Row 3 -->
+      <button data-val="7">7</button>
       <button data-val="8">8</button>
       <button data-val="9">9</button>
+      <!-- Row 4 -->
       <button data-val="10">10</button>
-      <!-- Row 4 (center 11,12) -->
-      <span class="spacer" aria-hidden="true"></span>
       <button data-val="11">11</button>
       <button data-val="12">12</button>
     </section>
@@ -189,7 +195,7 @@
 <script>
 (() => {
   // Unicode die faces U+2680..U+2685 (⚀..⚅)
-  const DIE_FACES = ["\u2680","\u2681","\u2682","\u2683","\u2684","\u2685"];
+  const DIE_FACES = ["\\u2680","\\u2681","\\u2682","\\u2683","\\u2684","\\u2685"];
 
   const die1El = document.getElementById('die1');
   const die2El = document.getElementById('die2');
@@ -316,7 +322,7 @@
       if (t !== null) times.push(t);
       updateStats();
 
-      // good flash, then schedule reroll in 2s
+      // good flash, then schedule reroll in 1s
       btn.classList.remove('flash-green'); void btn.offsetWidth; btn.classList.add('flash-green');
 
       acceptingAnswers = false;      // lock until next roll
@@ -327,7 +333,7 @@
       rerollTO = setTimeout(() => {
         if (paused) return;          // if user paused during wait, do nothing
         rollDice();
-      }, 2000);
+      }, 1000); // changed from 2000 to 1000
     } else {
       // wrong answer flash
       btn.classList.remove('flash-red'); void btn.offsetWidth; btn.classList.add('flash-red');
