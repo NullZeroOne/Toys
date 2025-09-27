@@ -8,6 +8,7 @@
   :root{
     --pad: clamp(8px, 2vw, 16px);
     --die-size: clamp(72px, 12vw, 140px);
+    --btn-w: clamp(40px, 9vw, 70px);   /* smaller buttons (~1/5 area of prior) */
     --accent:#1f6feb;
     --good:#17a34a;
     --bad:#d14343;
@@ -27,7 +28,7 @@
   .wrap{
     margin:auto;
     width:min(960px, 100%);
-    padding: calc(var(--pad)*1.5) var(--pad); /* ~25% less vertical padding */
+    padding: calc(var(--pad)*1.5) var(--pad);
     display:grid;
     gap: calc(var(--pad)*0.9);
   }
@@ -35,15 +36,15 @@
     display:flex;
     justify-content:center;
     align-items:center;
-    gap: clamp(10px, 2.25vw, 21px); /* a bit tighter vertically */
+    gap: clamp(10px, 2.25vw, 21px);
     padding: calc(var(--pad)*1.1);
     border: 2px dashed var(--border);
     border-radius: 12px;
     background: #fff;
-    min-height: calc(var(--die-size) * 1.05); /* ~25% shorter than before */
+    min-height: calc(var(--die-size) * 1.05);
   }
   .die{
-    font-size: calc(var(--die-size) * 0.75); /* 25% vertically shorter visual */
+    font-size: calc(var(--die-size) * 0.75);
     line-height: 1;
     filter: drop-shadow(0 2px 2px rgba(0,0,0,.08));
     user-select:none;
@@ -53,13 +54,17 @@
     opacity:.4;
   }
 
+  /* Phone keypad layout (top-left empty, then 2..12) */
   .pad{
     display:grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, var(--btn-w)); /* fixed narrow buttons */
+    justify-content:center;
     gap: calc(var(--pad) * 0.8);
   }
   .pad button{
-    font-size: clamp(16px, 2.6vw, 24px);
+    width: var(--btn-w);
+    aspect-ratio: 3 / 2;            /* 1.5× as wide as tall */
+    font-size: clamp(12px, 2.2vw, 18px);
     font-weight: 650;
     padding: 0;
     border-radius: 12px;
@@ -67,14 +72,13 @@
     background: #fff;
     cursor: pointer;
     transition: transform .03s ease, border-color .15s ease, box-shadow .15s ease;
-    aspect-ratio: 3 / 2;            /* 1.5× as wide as tall */
   }
   .pad button:active{ transform: translateY(1px); }
   .pad button:disabled{
     cursor:not-allowed;
     opacity:.55;
   }
-  /* flash borders */
+  /* flashes */
   .flash-green{ animation: flashG .45s ease; }
   .flash-red{   animation: flashR .45s ease; }
   @keyframes flashG{
@@ -85,6 +89,11 @@
     0%{ box-shadow: 0 0 0 0 var(--bad); border-color: var(--bad); }
     100%{ box-shadow: 0 0 0 6px rgba(209,67,67,0); border-color: var(--border); }
   }
+  /* persistent green highlight until reroll */
+  .hold-green{
+    border-color: var(--good) !important;
+    box-shadow: 0 0 0 4px rgba(23,163,74,.25);
+  }
 
   .controls{
     display:flex;
@@ -92,7 +101,7 @@
   }
   .controls button{
     font-size: clamp(15px, 2.2vw, 20px);
-    padding: .55em 1.1em;           /* ~25% less vertical padding */
+    padding: .55em 1.1em;
     border-radius: 12px;
     border: 2px solid var(--accent);
     background: #fff;
@@ -138,7 +147,6 @@
     font-size: clamp(16px, 2.2vw, 22px);
   }
 
-  /* invisible spacer cells */
   .pad .spacer{ visibility:hidden; }
 
   @media (hover:hover){
@@ -194,8 +202,8 @@
 
 <script>
 (() => {
-  // Unicode die faces U+2680..U+2685 (⚀..⚅)
-  const DIE_FACES = ["\\u2680","\\u2681","\\u2682","\\u2683","\\u2684","\\u2685"];
+  // Real die faces U+2680..U+2685 (⚀..⚅)
+  const DIE_FACES = ["\u2680","\u2681","\u2682","\u2683","\u2684","\u2685"];
 
   const die1El = document.getElementById('die1');
   const die2El = document.getElementById('die2');
@@ -214,13 +222,17 @@
   let startTime = null;    // performance.now() when dice shown
   let times = [];          // list of seconds for correct answers
   let rerollTO = null;     // timeout handle for auto re-roll
-  let acceptingAnswers = false; // lock keypad during green-flash wait
+  let acceptingAnswers = false; // lock keypad during green-hold wait
 
   // Helpers
   const fmt = s => (s === null || Number.isNaN(s)) ? '—' : s.toFixed(2) + ' s';
 
   function clearRerollTimeout(){
     if (rerollTO) { clearTimeout(rerollTO); rerollTO = null; }
+  }
+
+  function clearHighlights(){
+    keypad.querySelectorAll('.hold-green').forEach(b => b.classList.remove('hold-green'));
   }
 
   function setDice(empty=false){
@@ -276,6 +288,7 @@
   }
 
   function rollDice(){
+    clearHighlights();           // remove any held green
     setDice(false);
     running = true;
     acceptingAnswers = true;
@@ -298,6 +311,7 @@
     toggleBtn.textContent = "Resume";
     toggleBtn.classList.remove('running');
     statusRow.textContent = "Paused.";
+    clearHighlights();
   }
 
   function resumeGame(){
@@ -322,8 +336,9 @@
       if (t !== null) times.push(t);
       updateStats();
 
-      // good flash, then schedule reroll in 1s
-      btn.classList.remove('flash-green'); void btn.offsetWidth; btn.classList.add('flash-green');
+      // persistent green until reroll
+      clearHighlights();
+      btn.classList.add('hold-green');
 
       acceptingAnswers = false;      // lock until next roll
       enableKeypad(false);
@@ -331,9 +346,9 @@
 
       clearRerollTimeout();
       rerollTO = setTimeout(() => {
-        if (paused) return;          // if user paused during wait, do nothing
+        if (paused) return;          // if paused during wait, do nothing
         rollDice();
-      }, 1000); // changed from 2000 to 1000
+      }, 1000); // 1 second
     } else {
       // wrong answer flash
       btn.classList.remove('flash-red'); void btn.offsetWidth; btn.classList.add('flash-red');
@@ -344,10 +359,8 @@
   // Start / Pause / Resume button
   toggleBtn.addEventListener('click', () => {
     if (paused){
-      // could be Start or Resume
       resumeGame();
     } else {
-      // currently running → pause
       pauseGame();
     }
   });
